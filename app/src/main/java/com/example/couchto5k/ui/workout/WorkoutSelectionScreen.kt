@@ -85,7 +85,7 @@ fun WorkoutSelectionScreen(
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp, vertical = 8.dp)
                             .clickable {
-                                navController.navigate("workout_preview/\${workout.id}")
+                                navController.navigate("workout_preview/${workout.id}")
                             },
                         colors = CardDefaults.cardColors(
                             containerColor = MaterialTheme.colorScheme.surfaceVariant
@@ -98,7 +98,7 @@ fun WorkoutSelectionScreen(
                                 color = MaterialTheme.colorScheme.primary
                             )
                             Text(
-                                text = "Total Time: \${formatDuration(workout.totalDurationSeconds)}",
+                                text = "Total Time: ${formatDuration(workout.totalDurationSeconds)}",
                                 style = MaterialTheme.typography.bodyMedium
                             )
                         }
