@@ -27,5 +27,7 @@ class TrainingWorkoutTest {
         assertEquals("Total running time should be sum of RUN intervals", 180, workout.totalPlannedRunningSeconds)
         assertEquals("Total walking time should be sum of WALK intervals", 90, workout.totalPlannedWalkingSeconds)
         assertEquals("Longest run should be the max RUN interval duration", 120, workout.longestPlannedRunIntervalSeconds)
+        assertEquals("Number of run intervals should be 2", 2, workout.numberOfRunIntervals)
+        assertEquals("Number of walk intervals should be 1", 1, workout.numberOfWalkIntervals)
     }
 }

@@ -18,4 +18,10 @@ data class TrainingWorkout(
 
     val longestPlannedRunIntervalSeconds: Int
         get() = intervals.filter { it.type == IntervalType.RUN }.maxOfOrNull { it.durationSeconds } ?: 0
+
+    val numberOfRunIntervals: Int
+        get() = intervals.count { it.type == IntervalType.RUN }
+
+    val numberOfWalkIntervals: Int
+        get() = intervals.count { it.type == IntervalType.WALK }
 }
