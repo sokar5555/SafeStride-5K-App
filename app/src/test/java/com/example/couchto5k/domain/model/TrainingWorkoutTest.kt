@@ -12,7 +12,7 @@ class TrainingWorkoutTest {
             WorkoutInterval(1, IntervalType.RUN, 60),
             WorkoutInterval(2, IntervalType.WALK, 90),
             WorkoutInterval(3, IntervalType.RUN, 120),
-            WorkoutInterval(4, IntervalType.COOLDOWN, 300)
+            WorkoutInterval(4, IntervalType.COOLDOWN, 300),
         )
 
         val workout = TrainingWorkout(
@@ -20,7 +20,7 @@ class TrainingWorkoutTest {
             week = 1,
             workoutNumber = 1,
             title = "Test Workout",
-            intervals = intervals
+            intervals = intervals,
         )
 
         assertEquals("Total duration should be sum of all intervals", 870, workout.totalPlannedDurationSeconds)

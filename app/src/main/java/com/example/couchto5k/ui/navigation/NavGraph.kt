@@ -12,10 +12,10 @@ import androidx.navigation.NavType
 import androidx.navigation.navArgument
 import com.example.couchto5k.ui.calendar.CalendarScreen
 import com.example.couchto5k.ui.history.HistoryScreen
-import com.example.couchto5k.ui.home.HomeScreen
 import com.example.couchto5k.ui.stats.StatsScreen
 import com.example.couchto5k.ui.workout.WorkoutPreviewScreen
 import com.example.couchto5k.ui.workout.WorkoutSelectionScreen
+import com.example.couchto5k.ui.workout.ActiveWorkoutScreen
 
 @Composable
 fun AppNavGraph() {
@@ -31,18 +31,18 @@ fun AppNavGraph() {
             if (showBottomNav) {
                 AppBottomNavigation(navController = navController)
             }
-        }
+        },
     ) { innerPadding ->
         NavHost(
             navController = navController,
             startDestination = BottomNavItem.Home.route,
-            modifier = Modifier.padding(innerPadding)
+            modifier = Modifier.padding(innerPadding),
         ) {
             composable(BottomNavItem.Home.route) {
                 // Currently just delegating to selection screen on Home for Phase 1 MVP
-                WorkoutSelectionScreen(onWorkoutClick = { id ->
+                WorkoutSelectionScreen { id ->
                     navController.navigate("workout_preview/$id")
-                })
+                }
             }
             composable(BottomNavItem.Calendar.route) {
                 CalendarScreen()
@@ -55,13 +55,26 @@ fun AppNavGraph() {
             }
             composable(
                 route = "workout_preview/{workoutId}",
-                arguments = listOf(navArgument("workoutId") { type = NavType.LongType })
+                arguments = listOf(navArgument("workoutId") { type = NavType.LongType }),
             ) { backStackEntry ->
                 val workoutId = backStackEntry.arguments?.getLong("workoutId") ?: return@composable
                 WorkoutPreviewScreen(
                     workoutId = workoutId,
-                    onStartClick = { /* MVP Phase 2 placeholder */ },
-                    onBack = { navController.popBackStack() }
+                    onStartClick = { navController.navigate("active_workout/$workoutId") },
+                    onBack = { navController.popBackStack() },
+                )
+            }
+            composable(
+                route = "active_workout/{workoutId}",
+                arguments = listOf(navArgument("workoutId") { type = NavType.LongType }),
+            ) {
+                ActiveWorkoutScreen(
+                    onExit = {
+                        // Pop all the way back to home when exiting an active workout
+                        navController.navigate(BottomNavItem.Home.route) {
+                            popUpTo(BottomNavItem.Home.route) { inclusive = true }
+                        }
+                    },
                 )
             }
         }

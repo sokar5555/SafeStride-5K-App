@@ -31,7 +31,7 @@ import kotlinx.coroutines.flow.first
 
 @Composable
 fun WorkoutSelectionScreen(
-    onWorkoutClick: (Long) -> Unit
+    onWorkoutClick: (Long) -> Unit,
 ) {
     var workouts by remember { mutableStateOf<List<TrainingWorkout>>(emptyList()) }
 
@@ -42,19 +42,19 @@ fun WorkoutSelectionScreen(
         workouts = repository.getAllWorkouts().first()
     }
 
-    val workoutsByWeek = workouts.groupBy { it.week }
+    val workoutsByWeek = workouts.groupBy { (_, week) -> week }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         workoutsByWeek.forEach { (week, weekWorkouts) ->
             item(key = "week_header_$week") {
                 WeekHeader(week = week)
             }
-            items(weekWorkouts, key = { it.id }) { workout ->
-                WorkoutItem(workout = workout, onClick = { onWorkoutClick(workout.id) })
+            items(weekWorkouts, key = { (workoutId) -> workoutId }) { workout ->
+                WorkoutItem(workout = workout) { onWorkoutClick(workout.id) }
             }
         }
     }
@@ -65,19 +65,19 @@ fun WeekHeader(week: Int) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 12.dp, bottom = 4.dp)
+            .padding(top = 12.dp, bottom = 4.dp),
     ) {
         Text(
             text = "Week $week",
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.primary,
-            fontWeight = FontWeight.Bold
+            fontWeight = FontWeight.Bold,
         )
         Spacer(modifier = Modifier.height(4.dp))
         HorizontalDivider(
             modifier = Modifier.fillMaxWidth(),
             thickness = 2.dp,
-            color = MaterialTheme.colorScheme.primary
+            color = MaterialTheme.colorScheme.primary,
         )
     }
 }
@@ -89,7 +89,7 @@ fun WorkoutItem(workout: TrainingWorkout, onClick: () -> Unit) {
             .fillMaxWidth()
             .clickable(onClick = onClick),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(text = workout.title, style = MaterialTheme.typography.titleMedium)

@@ -1,10 +1,10 @@
 package com.example.couchto5k.ui.navigation
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.List
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -19,7 +19,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 sealed class BottomNavItem(val route: String, val title: String, val icon: ImageVector) {
     object Home : BottomNavItem("home", "Home", Icons.Default.Home)
     object Calendar : BottomNavItem("calendar", "Calendar", Icons.Default.DateRange)
-    object History : BottomNavItem("history", "History", Icons.Default.List)
+    object History : BottomNavItem("history", "History", Icons.AutoMirrored.Filled.List)
     object Stats : BottomNavItem("stats", "Stats", Icons.Default.Info)
 }
 
@@ -27,7 +27,7 @@ val bottomNavItems = listOf(
     BottomNavItem.Home,
     BottomNavItem.Calendar,
     BottomNavItem.History,
-    BottomNavItem.Stats
+    BottomNavItem.Stats,
 )
 
 @Composable
