@@ -4,6 +4,8 @@ import com.example.couchto5k.data.repository.DefaultTrainingPlanRepository
 import com.example.couchto5k.domain.repository.TrainingPlanRepository
 import dagger.Binds
 import dagger.Module
+import com.example.couchto5k.engine.AudioHapticManager
+import com.example.couchto5k.engine.DefaultAudioHapticManager
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 
@@ -16,4 +18,8 @@ abstract class AppModule {
         impl: DefaultTrainingPlanRepository
     ): TrainingPlanRepository
 
+    @Binds
+    abstract fun bindAudioHapticManager(
+        impl: DefaultAudioHapticManager
+    ): AudioHapticManager
 }

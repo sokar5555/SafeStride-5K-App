@@ -16,6 +16,7 @@ import com.example.couchto5k.ui.home.HomeScreen
 import com.example.couchto5k.ui.stats.StatsScreen
 import com.example.couchto5k.ui.workout.WorkoutPreviewScreen
 import com.example.couchto5k.ui.workout.WorkoutSelectionScreen
+import com.example.couchto5k.ui.workout.ActiveWorkoutScreen
 
 @Composable
 fun AppNavGraph() {
@@ -60,8 +61,21 @@ fun AppNavGraph() {
                 val workoutId = backStackEntry.arguments?.getLong("workoutId") ?: return@composable
                 WorkoutPreviewScreen(
                     workoutId = workoutId,
-                    onStartClick = { /* MVP Phase 2 placeholder */ },
+                    onStartClick = { navController.navigate("active_workout/$workoutId") },
                     onBack = { navController.popBackStack() }
+                )
+            }
+            composable(
+                route = "active_workout/{workoutId}",
+                arguments = listOf(navArgument("workoutId") { type = NavType.LongType })
+            ) { backStackEntry ->
+                ActiveWorkoutScreen(
+                    onExit = {
+                        // Pop all the way back to home when exiting an active workout
+                        navController.navigate(BottomNavItem.Home.route) {
+                            popUpTo(BottomNavItem.Home.route) { inclusive = true }
+                        }
+                    }
                 )
             }
         }
