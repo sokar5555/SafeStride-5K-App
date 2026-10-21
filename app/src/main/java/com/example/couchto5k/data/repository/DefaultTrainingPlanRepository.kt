@@ -12,7 +12,7 @@ class DefaultTrainingPlanRepository @Inject constructor() : TrainingPlanReposito
 
     override fun getAllWorkouts(): Flow<List<TrainingWorkout>> = flowOf(workouts)
 
-    override suspend fun getWorkoutById(id: Long): TrainingWorkout? = workouts.find { it.id == id }
+    override suspend fun getWorkoutById(id: Long): TrainingWorkout? = workouts.find { (workoutId) -> workoutId == id }
 
     companion object {
         private const val WARMUP_DURATION = 5 * 60
@@ -33,7 +33,7 @@ class DefaultTrainingPlanRepository @Inject constructor() : TrainingPlanReposito
                 }
             }
 
-            list.add(WorkoutInterval(seq++, IntervalType.COOLDOWN, COOLDOWN_DURATION))
+            list.add(WorkoutInterval(seq, IntervalType.COOLDOWN, COOLDOWN_DURATION))
             return list
         }
 
@@ -43,12 +43,12 @@ class DefaultTrainingPlanRepository @Inject constructor() : TrainingPlanReposito
 
             list.add(WorkoutInterval(seq++, IntervalType.WARMUP, WARMUP_DURATION))
 
-            for (i in 0 until repeats) {
+            repeat(repeats) {
                 list.add(WorkoutInterval(seq++, IntervalType.RUN, runSecs))
                 list.add(WorkoutInterval(seq++, IntervalType.WALK, walkSecs))
             }
 
-            list.add(WorkoutInterval(seq++, IntervalType.COOLDOWN, COOLDOWN_DURATION))
+            list.add(WorkoutInterval(seq, IntervalType.COOLDOWN, COOLDOWN_DURATION))
             return list
         }
 
@@ -64,8 +64,8 @@ class DefaultTrainingPlanRepository @Inject constructor() : TrainingPlanReposito
                         week = 1,
                         workoutNumber = i,
                         title = "Week 1, Workout $i",
-                        intervals = createRepeatedIntervals(8, 60, 90)
-                    )
+                        intervals = createRepeatedIntervals(8, 60, 90),
+                    ),
                 )
             }
 
@@ -77,8 +77,8 @@ class DefaultTrainingPlanRepository @Inject constructor() : TrainingPlanReposito
                         week = 2,
                         workoutNumber = i,
                         title = "Week 2, Workout $i",
-                        intervals = createRepeatedIntervals(6, 90, 120)
-                    )
+                        intervals = createRepeatedIntervals(6, 90, 120),
+                    ),
                 )
             }
 
@@ -92,9 +92,9 @@ class DefaultTrainingPlanRepository @Inject constructor() : TrainingPlanReposito
                         title = "Week 3, Workout $i",
                         intervals = createIntervals(
                             90 to 90, 180 to 180,
-                            90 to 90, 180 to 180
-                        )
-                    )
+                            90 to 90, 180 to 180,
+                        ),
+                    ),
                 )
             }
 
@@ -103,22 +103,22 @@ class DefaultTrainingPlanRepository @Inject constructor() : TrainingPlanReposito
             list.add(
                 TrainingWorkout(
                     id = idCounter++, week = 4, workoutNumber = 1, title = "Week 4, Workout 1",
-                    intervals = createIntervals(180 to 90, 300 to 150, 180 to 90, 300 to 0)
-                )
+                    intervals = createIntervals(180 to 90, 300 to 150, 180 to 90, 300 to 0),
+                ),
             )
             // W4D2: same
             list.add(
                 TrainingWorkout(
                     id = idCounter++, week = 4, workoutNumber = 2, title = "Week 4, Workout 2",
-                    intervals = createIntervals(180 to 90, 300 to 150, 180 to 90, 300 to 0)
-                )
+                    intervals = createIntervals(180 to 90, 300 to 150, 180 to 90, 300 to 0),
+                ),
             )
             // W4D3: same
             list.add(
                 TrainingWorkout(
                     id = idCounter++, week = 4, workoutNumber = 3, title = "Week 4, Workout 3",
-                    intervals = createIntervals(180 to 90, 300 to 150, 180 to 90, 300 to 0)
-                )
+                    intervals = createIntervals(180 to 90, 300 to 150, 180 to 90, 300 to 0),
+                ),
             )
 
             // Week 5
@@ -126,22 +126,22 @@ class DefaultTrainingPlanRepository @Inject constructor() : TrainingPlanReposito
             list.add(
                 TrainingWorkout(
                     id = idCounter++, week = 5, workoutNumber = 1, title = "Week 5, Workout 1",
-                    intervals = createIntervals(300 to 180, 300 to 180, 300 to 0)
-                )
+                    intervals = createIntervals(300 to 180, 300 to 180, 300 to 0),
+                ),
             )
             // W5D2: 5m warmup, 8m run, 5m walk, 8m run, 5m cooldown.
             list.add(
                 TrainingWorkout(
                     id = idCounter++, week = 5, workoutNumber = 2, title = "Week 5, Workout 2",
-                    intervals = createIntervals(480 to 300, 480 to 0)
-                )
+                    intervals = createIntervals(480 to 300, 480 to 0),
+                ),
             )
             // W5D3: 5m warmup, 20m run, 5m cooldown.
             list.add(
                 TrainingWorkout(
                     id = idCounter++, week = 5, workoutNumber = 3, title = "Week 5, Workout 3",
-                    intervals = createIntervals(1200 to 0)
-                )
+                    intervals = createIntervals(1200 to 0),
+                ),
             )
 
             // Week 6
@@ -149,22 +149,22 @@ class DefaultTrainingPlanRepository @Inject constructor() : TrainingPlanReposito
             list.add(
                 TrainingWorkout(
                     id = idCounter++, week = 6, workoutNumber = 1, title = "Week 6, Workout 1",
-                    intervals = createIntervals(300 to 180, 480 to 180, 300 to 0)
-                )
+                    intervals = createIntervals(300 to 180, 480 to 180, 300 to 0),
+                ),
             )
             // W6D2: 5m warmup, 10m run, 3m walk, 10m run, 5m cooldown.
             list.add(
                 TrainingWorkout(
                     id = idCounter++, week = 6, workoutNumber = 2, title = "Week 6, Workout 2",
-                    intervals = createIntervals(600 to 180, 600 to 0)
-                )
+                    intervals = createIntervals(600 to 180, 600 to 0),
+                ),
             )
             // W6D3: 5m warmup, 22m run, 5m cooldown.
             list.add(
                 TrainingWorkout(
                     id = idCounter++, week = 6, workoutNumber = 3, title = "Week 6, Workout 3",
-                    intervals = createIntervals(1320 to 0)
-                )
+                    intervals = createIntervals(1320 to 0),
+                ),
             )
 
             // Week 7: 5m warmup, 25m run, 5m cooldown. (3 times)
@@ -172,8 +172,8 @@ class DefaultTrainingPlanRepository @Inject constructor() : TrainingPlanReposito
                 list.add(
                     TrainingWorkout(
                         id = idCounter++, week = 7, workoutNumber = i, title = "Week 7, Workout $i",
-                        intervals = createIntervals(1500 to 0)
-                    )
+                        intervals = createIntervals(1500 to 0),
+                    ),
                 )
             }
 
@@ -182,8 +182,8 @@ class DefaultTrainingPlanRepository @Inject constructor() : TrainingPlanReposito
                 list.add(
                     TrainingWorkout(
                         id = idCounter++, week = 8, workoutNumber = i, title = "Week 8, Workout $i",
-                        intervals = createIntervals(1680 to 0)
-                    )
+                        intervals = createIntervals(1680 to 0),
+                    ),
                 )
             }
 
@@ -192,8 +192,8 @@ class DefaultTrainingPlanRepository @Inject constructor() : TrainingPlanReposito
                 list.add(
                     TrainingWorkout(
                         id = idCounter++, week = 9, workoutNumber = i, title = "Week 9, Workout $i",
-                        intervals = createIntervals(1800 to 0)
-                    )
+                        intervals = createIntervals(1800 to 0),
+                    ),
                 )
             }
 

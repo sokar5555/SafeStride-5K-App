@@ -1,7 +1,6 @@
 package com.example.couchto5k.ui.theme
 
 import android.app.Activity
-import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.lightColorScheme
@@ -29,13 +28,13 @@ private val LightColorScheme = lightColorScheme(
     onSurfaceVariant = SecondaryTextColor,
     outline = OutlineColor,
     error = ErrorColor,
-    onError = Color.White
+    onError = Color.White,
 )
 
 @Composable
 fun SafeStride5KTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
-    content: @Composable () -> Unit
+    @Suppress("UNUSED_PARAMETER") darkTheme: Boolean = isSystemInDarkTheme(),
+    content: @Composable () -> Unit,
 ) {
     val colorScheme = LightColorScheme
 
@@ -50,6 +49,6 @@ fun SafeStride5KTheme(
 
     MaterialTheme(
         colorScheme = colorScheme,
-        content = content
+        content = content,
     )
 }

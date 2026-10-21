@@ -53,7 +53,7 @@ import com.example.couchto5k.domain.model.WorkoutInterval
 fun WorkoutPreviewScreen(
     workoutId: Long,
     onStartClick: () -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
 ) {
     var workout by remember { mutableStateOf<TrainingWorkout?>(null) }
     val repository = remember { DefaultTrainingPlanRepository() }
@@ -70,7 +70,7 @@ fun WorkoutPreviewScreen(
                     IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back"
+                            contentDescription = "Back",
                         )
                     }
                 }
@@ -339,7 +339,7 @@ private fun formatTime(seconds: Int): String {
     val m = seconds / 60
     val s = seconds % 60
     return when {
-        m > 0 && s > 0 -> "${m}m ${s}s"
+        (m > 0) && (s > 0) -> "${m}m ${s}s"
         m > 0 -> "${m}m"
         else -> "${s}s"
     }
