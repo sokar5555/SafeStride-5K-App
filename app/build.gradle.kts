@@ -79,3 +79,12 @@ dependencies {
     testImplementation(libs.robolectric)
     testImplementation(libs.kotlinx.coroutines.test)
 }
+
+dependencies {
+    implementation("androidx.compose.material:material-icons-extended")
+}
+
+dependencies {
+    testImplementation(libs.robolectric)
+    testImplementation(libs.kotlinx.coroutines.test)
+}
