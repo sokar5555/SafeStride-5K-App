@@ -12,6 +12,7 @@ import androidx.navigation.NavType
 import androidx.navigation.navArgument
 import com.example.couchto5k.ui.calendar.CalendarScreen
 import com.example.couchto5k.ui.history.HistoryScreen
+import com.example.couchto5k.ui.history.WorkoutDetailScreen
 import com.example.couchto5k.ui.stats.StatsScreen
 import com.example.couchto5k.ui.workout.WorkoutPreviewScreen
 import com.example.couchto5k.ui.workout.WorkoutSelectionScreen
@@ -48,7 +49,9 @@ fun AppNavGraph() {
                 CalendarScreen()
             }
             composable(BottomNavItem.History.route) {
-                HistoryScreen()
+                HistoryScreen(
+                    onWorkoutClick = { id -> navController.navigate("workout_detail/$id") }
+                )
             }
             composable(BottomNavItem.Stats.route) {
                 StatsScreen()
@@ -76,6 +79,12 @@ fun AppNavGraph() {
                         }
                     },
                 )
+            }
+            composable(
+                route = "workout_detail/{completedWorkoutId}",
+                arguments = listOf(navArgument("completedWorkoutId") { type = NavType.LongType })
+            ) {
+                WorkoutDetailScreen(onBack = { navController.popBackStack() })
             }
         }
     }

@@ -87,4 +87,5 @@ dependencies {
 dependencies {
     testImplementation(libs.robolectric)
     testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation("androidx.test:core:1.5.0")
 }

@@ -5,11 +5,14 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.couchto5k.domain.model.TrainingWorkout
 import com.example.couchto5k.domain.repository.TrainingPlanRepository
+import com.example.couchto5k.domain.repository.WorkoutHistoryRepository
 import com.example.couchto5k.engine.WorkoutEngine
+import com.example.couchto5k.engine.WorkoutEngineStatus
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -17,6 +20,7 @@ import javax.inject.Inject
 class ActiveWorkoutViewModel @Inject constructor(
     private val workoutEngine: WorkoutEngine,
     private val repository: TrainingPlanRepository,
+    private val historyRepository: WorkoutHistoryRepository,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
@@ -32,6 +36,26 @@ class ActiveWorkoutViewModel @Inject constructor(
     init {
         if (workoutId != -1L) {
             loadAndStartWorkout()
+        }
+
+        viewModelScope.launch {
+            workoutState.collectLatest { state ->
+                if (state.status == WorkoutEngineStatus.COMPLETED || state.status == WorkoutEngineStatus.CANCELLED) {
+                    val workout = _currentWorkout.value
+                    if (workout != null && state.totalElapsedMillis > 0) {
+                        saveWorkoutHistory(workout, state)
+                    }
+                }
+            }
+        }
+    }
+
+    private var hasSaved = false
+    private fun saveWorkoutHistory(workout: TrainingWorkout, state: com.example.couchto5k.engine.ActiveWorkoutState) {
+        if (hasSaved) return
+        hasSaved = true
+        viewModelScope.launch {
+            historyRepository.saveCompletedWorkout(workout, state)
         }
     }
 
