@@ -70,6 +70,8 @@ dependencies {
     ksp(libs.room.compiler)
 
     implementation(libs.datastore.preferences)
+    implementation(libs.play.services.location)
+    ksp("org.jetbrains.kotlinx:kotlinx-metadata-jvm:0.7.0")
 
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)

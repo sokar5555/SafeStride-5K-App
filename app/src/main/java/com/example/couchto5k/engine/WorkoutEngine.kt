@@ -127,6 +127,13 @@ class WorkoutEngine @Inject constructor(
         }
     }
 
+    fun addDistance(meters: Double) {
+        if (meters <= 0.0) return
+        _workoutState.update {
+            it.copy(distanceMeters = it.distanceMeters + meters)
+        }
+    }
+
     fun stopWorkout() {
         val currentState = _workoutState.value
         if (currentState.currentInterval?.type == IntervalType.COOLDOWN && currentState.status != WorkoutEngineStatus.COMPLETED) {
