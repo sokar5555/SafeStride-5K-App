@@ -2,7 +2,6 @@ package com.example.couchto5k.data.repository
 
 import android.content.Context
 import androidx.room.Room
-import androidx.test.core.app.ApplicationProvider
 import com.example.couchto5k.data.local.AppDatabase
 import com.example.couchto5k.data.local.dao.CompletedWorkoutDao
 import com.example.couchto5k.domain.model.IntervalType
@@ -14,12 +13,12 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
 import java.time.Instant
 
 @RunWith(RobolectricTestRunner::class)
@@ -31,7 +30,7 @@ class WorkoutHistoryRepositoryTest {
 
     @Before
     fun setup() {
-        val context = ApplicationProvider.getApplicationContext<Context>()
+        val context: Context = RuntimeEnvironment.getApplication()
         db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java)
             .allowMainThreadQueries()
             .build()
