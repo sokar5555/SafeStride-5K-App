@@ -190,6 +190,73 @@ class WorkoutEngineTest {
         workoutEngine.stopWorkout()
     }
 
+    @Test
+    fun `test skip cooldown completes workout`() = runTest(testDispatcher) {
+        val workoutWithCooldown = TrainingWorkout(
+            id = 2L,
+            week = 1,
+            workoutNumber = 1,
+            title = "Test Workout with Cooldown",
+            intervals = listOf(
+                WorkoutInterval(0, IntervalType.WARMUP, 300),
+                WorkoutInterval(1, IntervalType.RUN, 60),
+                WorkoutInterval(2, IntervalType.COOLDOWN, 300),
+            ),
+        )
+
+        workoutEngine.start(workoutWithCooldown)
+        workoutEngine.skipToNextInterval() // go to RUN
+        workoutEngine.skipToNextInterval() // go to COOLDOWN
+
+        assertEquals(IntervalType.COOLDOWN, workoutEngine.workoutState.value.currentInterval?.type)
+
+        // Skip COOLDOWN
+        workoutEngine.skipToNextInterval()
+
+        val state = workoutEngine.workoutState.value
+        assertEquals(WorkoutEngineStatus.COMPLETED, state.status)
+    }
+
+    @Test
+    fun `test stop during cooldown completes workout`() = runTest(testDispatcher) {
+        val workoutWithCooldown = TrainingWorkout(
+            id = 3L,
+            week = 1,
+            workoutNumber = 1,
+            title = "Test Workout with Cooldown",
+            intervals = listOf(
+                WorkoutInterval(0, IntervalType.WARMUP, 300),
+                WorkoutInterval(1, IntervalType.RUN, 60),
+                WorkoutInterval(2, IntervalType.COOLDOWN, 300),
+            ),
+        )
+
+        workoutEngine.start(workoutWithCooldown)
+        workoutEngine.skipToNextInterval() // go to RUN
+        workoutEngine.skipToNextInterval() // go to COOLDOWN
+
+        assertEquals(IntervalType.COOLDOWN, workoutEngine.workoutState.value.currentInterval?.type)
+
+        // Stopping while in COOLDOWN should mark workout as COMPLETED
+        workoutEngine.stopWorkout()
+
+        val state = workoutEngine.workoutState.value
+        assertEquals(WorkoutEngineStatus.COMPLETED, state.status)
+    }
+
+    @Test
+    fun `test stop during run cancels workout`() = runTest(testDispatcher) {
+        workoutEngine.start(testWorkout)
+        workoutEngine.skipToNextInterval() // go to RUN
+
+        assertEquals(IntervalType.RUN, workoutEngine.workoutState.value.currentInterval?.type)
+
+        workoutEngine.stopWorkout()
+
+        val state = workoutEngine.workoutState.value
+        assertEquals(WorkoutEngineStatus.CANCELLED, state.status)
+    }
+
     class FakeAudioHapticManager : AudioHapticManager {
         override val isTtsReady = MutableStateFlow(value = true)
         var speakCount = 0

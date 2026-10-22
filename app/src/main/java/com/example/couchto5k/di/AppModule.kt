@@ -2,6 +2,8 @@ package com.example.couchto5k.di
 
 import com.example.couchto5k.data.repository.DefaultTrainingPlanRepository
 import com.example.couchto5k.domain.repository.TrainingPlanRepository
+import com.example.couchto5k.data.repository.DefaultWorkoutHistoryRepository
+import com.example.couchto5k.domain.repository.WorkoutHistoryRepository
 import dagger.Binds
 import dagger.Module
 import com.example.couchto5k.engine.AudioHapticManager
@@ -22,4 +24,9 @@ abstract class AppModule {
     abstract fun bindAudioHapticManager(
         impl: DefaultAudioHapticManager,
     ): AudioHapticManager
+
+    @Binds
+    abstract fun bindWorkoutHistoryRepository(
+        impl: DefaultWorkoutHistoryRepository,
+    ): WorkoutHistoryRepository
 }

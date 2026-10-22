@@ -14,7 +14,7 @@ data class TrainingWorkout(
         get() = intervals.filter { it.type == IntervalType.RUN }.sumOf { it.durationSeconds }
 
     val totalPlannedWalkingSeconds: Int
-        get() = intervals.filter { it.type == IntervalType.WALK }.sumOf { it.durationSeconds }
+        get() = intervals.filter { it.type != IntervalType.RUN }.sumOf { it.durationSeconds }
 
     val longestPlannedRunIntervalSeconds: Int
         get() = intervals.filter { it.type == IntervalType.RUN }.maxOfOrNull { it.durationSeconds } ?: 0

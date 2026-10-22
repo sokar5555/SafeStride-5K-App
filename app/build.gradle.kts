@@ -72,19 +72,10 @@ dependencies {
     implementation(libs.datastore.preferences)
 
     testImplementation(libs.junit)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.kotlinx.coroutines.test)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.ui.test.junit4)
-    testImplementation(libs.robolectric)
-    testImplementation(libs.kotlinx.coroutines.test)
-}
-
-dependencies {
-    implementation("androidx.compose.material:material-icons-extended")
-}
-
-dependencies {
-    testImplementation(libs.robolectric)
-    testImplementation(libs.kotlinx.coroutines.test)
 }
