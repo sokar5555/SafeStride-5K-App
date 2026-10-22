@@ -11,6 +11,7 @@ import com.example.couchto5k.domain.model.IntervalType
 import com.example.couchto5k.domain.model.TrainingWorkout
 import com.example.couchto5k.domain.repository.WorkoutHistoryRepository
 import com.example.couchto5k.engine.ActiveWorkoutState
+import com.example.couchto5k.engine.WorkoutEngineStatus
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import java.time.Instant
@@ -46,26 +47,17 @@ class DefaultWorkoutHistoryRepository @Inject constructor(
         var walkingSeconds = 0
 
         for ((index, interval) in workout.intervals.withIndex()) {
-            if (accumulatedTime >= totalElapsedSeconds) {
-                // Not started this interval
-                completedIntervals.add(
-                    CompletedIntervalEntity(
-                        completedWorkoutId = 0, // Assigned later
-                        sequence = interval.sequence,
-                        intervalType = interval.type,
-                        plannedDurationSeconds = interval.durationSeconds,
-                        actualDurationSeconds = 0,
-                        completed = false
-                    )
-                )
-                if (interval.type == IntervalType.RUN) {
-                    currentContinuousRunSeconds = 0 // broke streak
-                }
-                continue
+            val remainingTimeInWorkout = totalElapsedSeconds - accumulatedTime
+            val isCooldownCompleted = state.status == WorkoutEngineStatus.COMPLETED && interval.type == IntervalType.COOLDOWN
+
+            val actualDuration = if (isCooldownCompleted) {
+                interval.durationSeconds
+            } else if (accumulatedTime >= totalElapsedSeconds) {
+                0
+            } else {
+                min(interval.durationSeconds, maxOf(0, remainingTimeInWorkout))
             }
 
-            val remainingTimeInWorkout = totalElapsedSeconds - accumulatedTime
-            val actualDuration = min(interval.durationSeconds, remainingTimeInWorkout)
             val isCompleted = actualDuration >= interval.durationSeconds
 
             completedIntervals.add(
@@ -87,25 +79,23 @@ class DefaultWorkoutHistoryRepository @Inject constructor(
                 }
                 if (!isCompleted) {
                     currentContinuousRunSeconds = 0 // Break streak if not fully completed?
-                    // Actually if we stopped during a run, we should reset it or just leave it.
-                    // Leaving it captures the run up to the point of stopping.
                 }
             } else {
                 currentContinuousRunSeconds = 0
-                if (interval.type == IntervalType.WALK) {
-                    walkingSeconds += actualDuration
-                }
+                walkingSeconds += actualDuration
             }
 
             accumulatedTime += interval.durationSeconds
         }
+
+        val totalWorkoutDurationSeconds = maxOf(totalElapsedSeconds, completedIntervals.sumOf { it.actualDurationSeconds })
 
         val entity = CompletedWorkoutEntity(
             trainingWorkoutId = workout.id,
             title = workout.title,
             startedAt = state.startedAt,
             completedAt = Instant.now(),
-            durationSeconds = totalElapsedSeconds,
+            durationSeconds = totalWorkoutDurationSeconds,
             runningSeconds = runningSeconds,
             walkingSeconds = walkingSeconds,
             distanceMeters = state.distanceMeters,

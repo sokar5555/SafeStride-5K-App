@@ -81,10 +81,18 @@ fun ActiveWorkoutScreen(
     }
 
     if (showExitDialog) {
+        val isCooldown = state.currentInterval?.type == IntervalType.COOLDOWN
         AlertDialog(
             onDismissRequest = { showExitDialog = false },
-            title = { Text("Stop Workout?") },
-            text = { Text("Are you sure you want to stop the workout? Progress will be lost.") },
+            title = { Text(if (isCooldown) "Finish Workout?" else "Stop Workout?") },
+            text = {
+                Text(
+                    if (isCooldown)
+                        "You are in the cooldown period. Finishing now will save your completed workout."
+                    else
+                        "Are you sure you want to stop the workout? Progress will be lost."
+                )
+            },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -93,7 +101,10 @@ fun ActiveWorkoutScreen(
                         onExit()
                     },
                 ) {
-                    Text("Stop", color = MaterialTheme.colorScheme.error)
+                    Text(
+                        if (isCooldown) "Finish" else "Stop",
+                        color = if (isCooldown) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                    )
                 }
             },
             dismissButton = {

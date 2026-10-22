@@ -128,6 +128,12 @@ class WorkoutEngine @Inject constructor(
     }
 
     fun stopWorkout() {
+        val currentState = _workoutState.value
+        if (currentState.currentInterval?.type == IntervalType.COOLDOWN && currentState.status != WorkoutEngineStatus.COMPLETED) {
+            completeWorkout()
+            return
+        }
+
         stopTicker()
         activeWorkout = null
         _workoutState.update {
@@ -144,9 +150,12 @@ class WorkoutEngine @Inject constructor(
         audioHapticManager.vibrateTransition()
         audioHapticManager.speak("Workout complete!")
 
+        val totalPlannedMillis = (activeWorkout?.totalPlannedDurationSeconds ?: 0) * 1000L
+
         _workoutState.update {
             it.copy(
                 intervalRemainingMillis = 0L,
+                totalElapsedMillis = if (totalPlannedMillis > 0) maxOf(it.totalElapsedMillis, totalPlannedMillis) else it.totalElapsedMillis,
                 isPaused = true,
                 status = WorkoutEngineStatus.COMPLETED,
             )

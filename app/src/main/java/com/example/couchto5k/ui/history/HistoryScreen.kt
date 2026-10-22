@@ -70,7 +70,7 @@ fun HistoryScreen(
             AlertDialog(
                 onDismissRequest = { workoutToDelete = null },
                 title = { Text("Delete Workout") },
-                text = { Text("Are you sure you want to delete this workout history? This cannot be undone.") },
+                text = { Text("Are you sure you want to delete this workout? This cannot be undone.") },
                 confirmButton = {
                     TextButton(
                         onClick = {

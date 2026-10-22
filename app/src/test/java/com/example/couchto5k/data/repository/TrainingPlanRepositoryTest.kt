@@ -26,7 +26,7 @@ class TrainingPlanRepositoryTest {
         // 5m warmup + 8*(1m run + 1.5m walk) + 5m cooldown = 5 + 8*2.5 + 5 = 30 minutes
         assertEquals("W1D1 total duration should be 30 minutes", 30 * 60, w1d1.totalPlannedDurationSeconds)
         assertEquals("W1D1 running duration should be 8 minutes", 8 * 60, w1d1.totalPlannedRunningSeconds)
-        assertEquals("W1D1 walking duration should be 12 minutes", 12 * 60, w1d1.totalPlannedWalkingSeconds)
+        assertEquals("W1D1 walking duration should be 22 minutes (including warmup and cooldown)", 22 * 60, w1d1.totalPlannedWalkingSeconds)
         assertEquals("W1D1 longest run should be 60 seconds", 60, w1d1.longestPlannedRunIntervalSeconds)
     }
 
