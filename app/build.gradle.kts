@@ -58,7 +58,7 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
-    implementation("androidx.compose.material:material-icons-extended")
+    implementation(libs.androidx.material.icons.extended)
     implementation(libs.androidx.navigation.compose)
 
     implementation(libs.hilt.android)
@@ -71,7 +71,6 @@ dependencies {
 
     implementation(libs.datastore.preferences)
     implementation(libs.play.services.location)
-    ksp("org.jetbrains.kotlinx:kotlinx-metadata-jvm:0.7.0")
 
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)
