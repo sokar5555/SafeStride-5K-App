@@ -18,12 +18,13 @@ import com.example.couchto5k.engine.WorkoutEngineStatus
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HistoryScreen(
     viewModel: HistoryViewModel = hiltViewModel(),
-    onWorkoutClick: (Long) -> Unit = {}
+    onWorkoutClick: (Long) -> Unit = {},
 ) {
     val history by viewModel.history.collectAsState()
     var workoutToDelete by remember { mutableStateOf<Long?>(null) }
@@ -60,7 +61,7 @@ fun HistoryScreen(
                     WorkoutHistoryCard(
                         details = item,
                         onClick = { onWorkoutClick(item.workout.id) },
-                        onDeleteClick = { workoutToDelete = item.workout.id }
+                        onDeleteClick = { workoutToDelete = item.workout.id },
                     )
                 }
             }
@@ -95,7 +96,7 @@ fun HistoryScreen(
 fun WorkoutHistoryCard(
     details: CompletedWorkoutDetails,
     onClick: () -> Unit,
-    onDeleteClick: () -> Unit
+    onDeleteClick: () -> Unit,
 ) {
     val workout = details.workout
     val formatter = DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT)
@@ -180,5 +181,5 @@ fun WorkoutHistoryCard(
 private fun formatDuration(seconds: Int): String {
     val m = seconds / 60
     val s = seconds % 60
-    return String.format("%d:%02d", m, s)
+    return String.format(Locale.getDefault(), "%d:%02d", m, s)
 }

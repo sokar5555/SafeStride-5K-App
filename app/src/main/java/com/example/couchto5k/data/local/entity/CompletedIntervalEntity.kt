@@ -13,10 +13,10 @@ import com.example.couchto5k.domain.model.IntervalType
             entity = CompletedWorkoutEntity::class,
             parentColumns = ["id"],
             childColumns = ["completedWorkoutId"],
-            onDelete = ForeignKey.CASCADE
-        )
+            onDelete = ForeignKey.CASCADE,
+        ),
     ],
-    indices = [Index("completedWorkoutId")]
+    indices = [Index("completedWorkoutId")],
 )
 data class CompletedIntervalEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
@@ -25,5 +25,5 @@ data class CompletedIntervalEntity(
     val intervalType: IntervalType,
     val plannedDurationSeconds: Int,
     val actualDurationSeconds: Int,
-    val completed: Boolean
+    val completed: Boolean,
 )

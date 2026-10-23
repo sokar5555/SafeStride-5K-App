@@ -18,5 +18,5 @@ data class CompletedWorkoutEntity(
     val distanceMeters: Double,
     val averagePaceSecondsPerKm: Double,
     val longestCompletedRunSeconds: Int,
-    val status: WorkoutEngineStatus
+    val status: WorkoutEngineStatus,
 )

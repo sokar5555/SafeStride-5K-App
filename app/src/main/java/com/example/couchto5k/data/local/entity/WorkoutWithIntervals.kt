@@ -7,7 +7,7 @@ data class WorkoutWithIntervals(
     @Embedded val workout: CompletedWorkoutEntity,
     @Relation(
         parentColumn = "id",
-        entityColumn = "completedWorkoutId"
+        entityColumn = "completedWorkoutId",
     )
-    val intervals: List<CompletedIntervalEntity>
+    val intervals: List<CompletedIntervalEntity>,
 )

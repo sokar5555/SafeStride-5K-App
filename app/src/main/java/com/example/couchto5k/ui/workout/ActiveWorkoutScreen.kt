@@ -90,7 +90,7 @@ fun ActiveWorkoutScreen(
                     if (isCooldown)
                         "You are in the cooldown period. Finishing now will save your completed workout."
                     else
-                        "Are you sure you want to stop the workout? Progress will be lost."
+                        "Are you sure you want to stop the workout? Progress will be lost.",
                 )
             },
             confirmButton = {

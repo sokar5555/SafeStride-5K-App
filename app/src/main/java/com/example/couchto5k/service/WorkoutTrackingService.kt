@@ -4,19 +4,14 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
-import android.content.Context
+import android.app.Service
 import android.content.Intent
-import android.os.Build
-import androidx.core.app.NotificationCompat
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.cancel
-import com.example.couchto5k.MainActivity
-import com.example.couchto5k.R
-import com.example.couchto5k.engine.ActiveWorkoutState
-import com.example.couchto5k.engine.WorkoutEngine
 import android.os.Looper
 import android.util.Log
+import androidx.core.app.NotificationCompat
+import com.example.couchto5k.MainActivity
+import com.example.couchto5k.engine.ActiveWorkoutState
+import com.example.couchto5k.engine.WorkoutEngine
 import com.example.couchto5k.engine.WorkoutEngineStatus
 import com.example.couchto5k.location.LocationFilter
 import com.example.couchto5k.location.LocationPoint
@@ -26,13 +21,14 @@ import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
+import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import java.util.Locale
 import javax.inject.Inject
-import dagger.hilt.android.components.ServiceComponent
-import android.app.Service
-import dagger.hilt.android.scopes.ServiceScoped
-import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
 class WorkoutTrackingService : Service() {
@@ -61,7 +57,7 @@ class WorkoutTrackingService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
 
         createLocationCallback()
@@ -95,7 +91,7 @@ class WorkoutTrackingService : Service() {
                         longitude = location.longitude,
                         altitude = if (location.hasAltitude()) location.altitude else null,
                         accuracyMeters = location.accuracy,
-                        timestamp = location.time
+                        timestamp = location.time,
                     )
 
                     val incrementalDistance = locationFilter.processLocation(point)
@@ -118,7 +114,7 @@ class WorkoutTrackingService : Service() {
             fusedLocationClient.requestLocationUpdates(
                 locationRequest,
                 locationCallback,
-                Looper.getMainLooper()
+                Looper.getMainLooper(),
             )
             isTrackingLocation = true
         } catch (e: SecurityException) {
@@ -201,15 +197,15 @@ class WorkoutTrackingService : Service() {
         val remainingSeconds = (state.intervalRemainingMillis / 1000).toInt()
         val m = remainingSeconds / 60
         val s = remainingSeconds % 60
-        val timeRemaining = String.format("%d:%02d", m, s)
+        val timeRemaining = String.format(Locale.getDefault(), "%d:%02d", m, s)
 
         val elapsedSeconds = (state.totalElapsedMillis / 1000).toInt()
         val em = elapsedSeconds / 60
         val es = elapsedSeconds % 60
-        val timeElapsed = String.format("%d:%02d", em, es)
+        val timeElapsed = String.format(Locale.getDefault(), "%d:%02d", em, es)
 
         val miles = state.distanceMeters * 0.000621371
-        val distanceStr = String.format("%.2f mi", miles)
+        val distanceStr = String.format(Locale.getDefault(), "%.2f mi", miles)
 
         val intervalTypeName = state.currentInterval?.type?.name ?: "STARTING"
 
@@ -229,15 +225,13 @@ class WorkoutTrackingService : Service() {
     }
 
     private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                NOTIFICATION_CHANNEL_ID,
-                "Workout Tracking",
-                NotificationManager.IMPORTANCE_LOW
-            ).apply {
-                description = "Shows ongoing workout timer and distance"
-            }
-            notificationManager.createNotificationChannel(channel)
+        val channel = NotificationChannel(
+            NOTIFICATION_CHANNEL_ID,
+            "Workout Tracking",
+            NotificationManager.IMPORTANCE_LOW
+        ).apply {
+            description = "Shows ongoing workout timer and distance"
         }
+        notificationManager.createNotificationChannel(channel)
     }
 }

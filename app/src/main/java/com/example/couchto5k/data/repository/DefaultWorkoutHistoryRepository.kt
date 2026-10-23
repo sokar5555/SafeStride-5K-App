@@ -46,7 +46,7 @@ class DefaultWorkoutHistoryRepository @Inject constructor(
         var runningSeconds = 0
         var walkingSeconds = 0
 
-        for ((index, interval) in workout.intervals.withIndex()) {
+        for (interval in workout.intervals) {
             val remainingTimeInWorkout = totalElapsedSeconds - accumulatedTime
             val isCooldownCompleted = state.status == WorkoutEngineStatus.COMPLETED && interval.type == IntervalType.COOLDOWN
 
