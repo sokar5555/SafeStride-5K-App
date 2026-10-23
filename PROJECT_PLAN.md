@@ -538,6 +538,14 @@ Tasks:
 
 Done when: app builds/opens, bottom navigation works, theme is visible.
 
+### Phase 0.5: Build & Toolchain Modernization (Foundation)
+- [ ] Implement Gradle Version Catalog (`gradle/libs.versions.toml`) to centralize all dependency versions and prevent mismatch errors.
+- [ ] Migrate annotation processors from KAPT to KSP (Kotlin Symbol Processing) for faster builds and modern Kotlin 2.0 compatibility.
+- [ ] Audit and upgrade core toolchain to newest stable:
+  - Gradle & Android Gradle Plugin (AGP)
+  - Kotlin 2.0+ & Jetpack Compose Compiler
+  - Hilt & Room (KSP compatible versions)
+  -
 ### Phase 1 — Training Plan
 Tasks:
 - Domain models
