@@ -47,6 +47,10 @@ import com.example.couchto5k.data.repository.DefaultTrainingPlanRepository
 import com.example.couchto5k.domain.model.IntervalType
 import com.example.couchto5k.domain.model.TrainingWorkout
 import com.example.couchto5k.domain.model.WorkoutInterval
+import android.Manifest
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -57,6 +61,14 @@ fun WorkoutPreviewScreen(
 ) {
     var workout by remember { mutableStateOf<TrainingWorkout?>(null) }
     val repository = remember { DefaultTrainingPlanRepository() }
+
+    val permissionsLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { _ ->
+        // Whether permissions are granted or denied, we start the workout.
+        // The service and engine handle graceful degradation (time-based without GPS if denied).
+        onStartClick()
+    }
 
     LaunchedEffect(workoutId) {
         workout = repository.getWorkoutById(workoutId)
@@ -133,7 +145,19 @@ fun WorkoutPreviewScreen(
 
             // Start button
             Button(
-                onClick = onStartClick,
+                onClick = {
+                    val permissions = mutableListOf(
+                        Manifest.permission.ACCESS_FINE_LOCATION,
+                        Manifest.permission.ACCESS_COARSE_LOCATION
+                    )
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        permissions.add(Manifest.permission.POST_NOTIFICATIONS)
+                    }
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                        permissions.add(Manifest.permission.FOREGROUND_SERVICE_LOCATION)
+                    }
+                    permissionsLauncher.launch(permissions.toTypedArray())
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 12.dp),

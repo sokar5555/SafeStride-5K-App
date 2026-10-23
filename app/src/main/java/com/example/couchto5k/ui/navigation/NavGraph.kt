@@ -50,7 +50,7 @@ fun AppNavGraph() {
             }
             composable(BottomNavItem.History.route) {
                 HistoryScreen(
-                    onWorkoutClick = { id -> navController.navigate("workout_detail/$id") }
+                    onWorkoutClick = { id -> navController.navigate("workout_detail/$id") },
                 )
             }
             composable(BottomNavItem.Stats.route) {
@@ -82,7 +82,7 @@ fun AppNavGraph() {
             }
             composable(
                 route = "workout_detail/{completedWorkoutId}",
-                arguments = listOf(navArgument("completedWorkoutId") { type = NavType.LongType })
+                arguments = listOf(navArgument("completedWorkoutId") { type = NavType.LongType }),
             ) {
                 WorkoutDetailScreen(onBack = { navController.popBackStack() })
             }

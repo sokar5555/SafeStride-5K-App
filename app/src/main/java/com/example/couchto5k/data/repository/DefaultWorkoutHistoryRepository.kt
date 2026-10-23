@@ -19,7 +19,7 @@ import javax.inject.Inject
 import kotlin.math.min
 
 class DefaultWorkoutHistoryRepository @Inject constructor(
-    private val completedWorkoutDao: CompletedWorkoutDao
+    private val completedWorkoutDao: CompletedWorkoutDao,
 ) : WorkoutHistoryRepository {
 
     override fun getHistory(): Flow<List<CompletedWorkoutDetails>> {
@@ -34,7 +34,7 @@ class DefaultWorkoutHistoryRepository @Inject constructor(
 
     override suspend fun saveCompletedWorkout(
         workout: TrainingWorkout,
-        state: ActiveWorkoutState
+        state: ActiveWorkoutState,
     ) {
         val totalElapsedSeconds = (state.totalElapsedMillis / 1000).toInt()
 
@@ -46,9 +46,9 @@ class DefaultWorkoutHistoryRepository @Inject constructor(
         var runningSeconds = 0
         var walkingSeconds = 0
 
-        for ((index, interval) in workout.intervals.withIndex()) {
+        for (interval in workout.intervals) {
             val remainingTimeInWorkout = totalElapsedSeconds - accumulatedTime
-            val isCooldownCompleted = state.status == WorkoutEngineStatus.COMPLETED && interval.type == IntervalType.COOLDOWN
+            val isCooldownCompleted = (state.status == WorkoutEngineStatus.COMPLETED) && (interval.type == IntervalType.COOLDOWN)
 
             val actualDuration = if (isCooldownCompleted) {
                 interval.durationSeconds
@@ -67,7 +67,7 @@ class DefaultWorkoutHistoryRepository @Inject constructor(
                     intervalType = interval.type,
                     plannedDurationSeconds = interval.durationSeconds,
                     actualDurationSeconds = actualDuration,
-                    completed = isCompleted
+                    completed = isCompleted,
                 )
             )
 

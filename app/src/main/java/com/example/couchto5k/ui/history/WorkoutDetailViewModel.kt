@@ -15,7 +15,7 @@ import javax.inject.Inject
 @HiltViewModel
 class WorkoutDetailViewModel @Inject constructor(
     private val repository: WorkoutHistoryRepository,
-    savedStateHandle: SavedStateHandle
+    savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
     private val completedWorkoutId: Long = savedStateHandle.get<Long>("completedWorkoutId") ?: -1L

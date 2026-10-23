@@ -4,10 +4,13 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.couchto5k.domain.model.TrainingWorkout
+import android.app.Application
+import android.content.Intent
 import com.example.couchto5k.domain.repository.TrainingPlanRepository
 import com.example.couchto5k.domain.repository.WorkoutHistoryRepository
 import com.example.couchto5k.engine.WorkoutEngine
 import com.example.couchto5k.engine.WorkoutEngineStatus
+import com.example.couchto5k.service.WorkoutTrackingService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -21,6 +24,7 @@ class ActiveWorkoutViewModel @Inject constructor(
     private val workoutEngine: WorkoutEngine,
     private val repository: TrainingPlanRepository,
     private val historyRepository: WorkoutHistoryRepository,
+    private val application: Application,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
@@ -65,19 +69,30 @@ class ActiveWorkoutViewModel @Inject constructor(
             if (workout != null) {
                 _currentWorkout.value = workout
                 workoutEngine.start(workout)
+
+                val startIntent = Intent(application, WorkoutTrackingService::class.java).apply {
+                    action = WorkoutTrackingService.ACTION_START
+                }
+                application.startService(startIntent)
             }
         }
     }
 
-    fun pause() = workoutEngine.pause()
-    fun resume() = workoutEngine.resume()
+    private fun sendServiceCommand(action: String) {
+        val intent = Intent(application, WorkoutTrackingService::class.java).apply {
+            this.action = action
+        }
+        application.startService(intent)
+    }
+
+    fun pause() = sendServiceCommand(WorkoutTrackingService.ACTION_PAUSE)
+    fun resume() = sendServiceCommand(WorkoutTrackingService.ACTION_RESUME)
     fun skipNext() = workoutEngine.skipToNextInterval()
     fun skipPrevious() = workoutEngine.previousInterval()
-    fun stop() = workoutEngine.stopWorkout()
+    fun stop() = sendServiceCommand(WorkoutTrackingService.ACTION_STOP)
 
     override fun onCleared() {
         super.onCleared()
-        // Stop workout engine if it's still running when VM is cleared
-        workoutEngine.stopWorkout()
+        // If the service is running, we let it continue. We DO NOT stop it on VM clear!
     }
 }

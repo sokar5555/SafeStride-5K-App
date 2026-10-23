@@ -4,7 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material3.*
@@ -16,12 +16,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.couchto5k.domain.model.CompletedInterval
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WorkoutDetailScreen(
     viewModel: WorkoutDetailViewModel = hiltViewModel(),
-    onBack: () -> Unit
+    onBack: () -> Unit,
 ) {
     val details by viewModel.workoutDetails.collectAsState()
 
@@ -31,19 +32,19 @@ fun WorkoutDetailScreen(
                 title = { Text(details?.workout?.title ?: "Workout Detail") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(imageVector = Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
-                }
+                },
             )
-        }
+        },
     ) { padding ->
-        if (details == null) {
+        val currentDetails = details
+        if (currentDetails == null) {
             Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
             }
         } else {
-            val workout = details!!.workout
-            val intervals = details!!.intervals
+            val (workout, intervals) = currentDetails
 
             LazyColumn(
                 modifier = Modifier
@@ -162,5 +163,5 @@ fun IntervalDetailItem(interval: CompletedInterval) {
 private fun formatDuration(seconds: Int): String {
     val m = seconds / 60
     val s = seconds % 60
-    return String.format("%d:%02d", m, s)
+    return String.format(Locale.getDefault(), "%d:%02d", m, s)
 }

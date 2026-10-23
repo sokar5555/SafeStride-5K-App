@@ -95,7 +95,7 @@ fun WorkoutItem(workout: TrainingWorkout, onClick: () -> Unit) {
             Text(text = workout.title, style = MaterialTheme.typography.titleMedium)
             Text(
                 text = "Total time: ${workout.totalPlannedDurationSeconds / 60} min",
-                style = MaterialTheme.typography.bodyMedium
+                style = MaterialTheme.typography.bodyMedium,
             )
         }
     }

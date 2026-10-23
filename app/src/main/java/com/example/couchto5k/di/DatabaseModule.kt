@@ -21,7 +21,7 @@ object DatabaseModule {
         return Room.databaseBuilder(
             context,
             AppDatabase::class.java,
-            "couchto5k_db"
+            "couchto5k_db",
         ).build()
     }
 
