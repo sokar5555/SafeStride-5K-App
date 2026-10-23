@@ -34,9 +34,9 @@ fun WorkoutDetailScreen(
                     IconButton(onClick = onBack) {
                         Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
-                }
+                },
             )
-        }
+        },
     ) { padding ->
         val currentDetails = details
         if (currentDetails == null) {
@@ -44,8 +44,7 @@ fun WorkoutDetailScreen(
                 CircularProgressIndicator()
             }
         } else {
-            val workout = currentDetails.workout
-            val intervals = currentDetails.intervals
+            val (workout, intervals) = currentDetails
 
             LazyColumn(
                 modifier = Modifier
