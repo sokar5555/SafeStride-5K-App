@@ -44,6 +44,14 @@ At the end of every task report:
 4. Anything requiring manual verification
 5. Known limitations
 6. Recommended next task
+
+### Build & Dependency Management
+- Target the newest stable versions of Gradle, Android Gradle Plugin (AGP), Kotlin, and Jetpack libraries. Do not use alpha/beta/RC versions unless absolutely necessary for the MVP.
+- Always use a Version Catalog (`gradle/libs.versions.toml`) to manage dependencies. Do not hardcode version strings in `build.gradle.kts` files.
+- Prefer KSP (Kotlin Symbol Processing) over KAPT for all annotation processing (Hilt, Room, etc.).
+- When upgrading Kotlin, explicitly verify that the KSP and Compose Compiler plugins are compatible with the new Kotlin version before committing.
+- Never leave the build in a broken state. Resolve all Gradle sync errors, dependency conflicts, and compilation failures before proceeding to application logic.
+
 ```
 
 Commit this file.
