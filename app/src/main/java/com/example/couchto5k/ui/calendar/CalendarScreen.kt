@@ -72,7 +72,7 @@ fun CalendarScreen(
                     }
                 },
             )
-        }
+        },
     ) { padding ->
         Column(
             modifier = Modifier
@@ -127,7 +127,7 @@ fun CalendarScreen(
                 onMonthChange = { displayedMonth = it },
                 onDateSelected = { date ->
                     selectedDate = if (selectedDate == date) null else date
-                },
+                }
             )
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -290,7 +290,7 @@ fun MonthCalendarCard(
                     ) {
                         for (colIndex in 0 until 7) {
                             val cellIndex = (rowIndex * 7) + colIndex
-                            val dayNumber = cellIndex - startDayOfWeekOffset + 1
+                            val dayNumber = (cellIndex - startDayOfWeekOffset) + 1
 
                             if (dayNumber in 1..daysInMonth) {
                                 val date = displayedMonth.atDay(dayNumber)

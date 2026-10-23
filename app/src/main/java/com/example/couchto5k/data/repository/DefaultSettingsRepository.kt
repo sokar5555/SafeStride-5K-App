@@ -15,7 +15,7 @@ import javax.inject.Singleton
 
 @Singleton
 class DefaultSettingsRepository @Inject constructor(
-    private val dataStore: DataStore<Preferences>
+    private val dataStore: DataStore<Preferences>,
 ) : SettingsRepository {
 
     private val startDateKey = longPreferencesKey("program_start_date")
@@ -30,7 +30,7 @@ class DefaultSettingsRepository @Inject constructor(
         if (daysStrings.isNullOrEmpty()) {
             setOf(DayOfWeek.MONDAY, DayOfWeek.WEDNESDAY, DayOfWeek.FRIDAY) // Default
         } else {
-            daysStrings.map { DayOfWeek.valueOf(it) }.toSet()
+            daysStrings.asSequence().map { DayOfWeek.valueOf(it) }.toSet()
         }
     }
 
@@ -42,7 +42,7 @@ class DefaultSettingsRepository @Inject constructor(
 
     override suspend fun setPreferredWorkoutDays(days: Set<DayOfWeek>) {
         dataStore.edit { preferences ->
-            preferences[preferredDaysKey] = days.map { it.name }.toSet()
+            preferences[preferredDaysKey] = days.asSequence().map { it.name }.toSet()
         }
     }
 }

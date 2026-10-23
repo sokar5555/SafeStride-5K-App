@@ -52,6 +52,7 @@ class LocationFilter(
         return distanceMeters
     }
 
+    @Suppress("unused")
     fun reset() {
         lastAcceptedPoint = null
     }

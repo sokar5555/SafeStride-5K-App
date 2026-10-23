@@ -68,7 +68,7 @@ class DefaultWorkoutHistoryRepository @Inject constructor(
                     plannedDurationSeconds = durationSeconds,
                     actualDurationSeconds = actualDuration,
                     completed = isCompleted,
-                )
+                ),
             )
 
             if (type == IntervalType.RUN) {

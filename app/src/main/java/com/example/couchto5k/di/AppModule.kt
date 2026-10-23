@@ -12,27 +12,33 @@ import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import javax.inject.Singleton
 
+@Suppress("unused")
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class AppModule {
 
     @Binds
+    @Singleton
     abstract fun bindTrainingPlanRepository(
         impl: DefaultTrainingPlanRepository,
     ): TrainingPlanRepository
 
     @Binds
+    @Singleton
     abstract fun bindAudioHapticManager(
         impl: DefaultAudioHapticManager,
     ): AudioHapticManager
 
     @Binds
+    @Singleton
     abstract fun bindWorkoutHistoryRepository(
         impl: DefaultWorkoutHistoryRepository,
     ): WorkoutHistoryRepository
 
     @Binds
+    @Singleton
     abstract fun bindSettingsRepository(
         impl: DefaultSettingsRepository,
     ): SettingsRepository

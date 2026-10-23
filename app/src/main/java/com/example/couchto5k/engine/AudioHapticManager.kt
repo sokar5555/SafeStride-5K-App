@@ -122,7 +122,7 @@ class DefaultAudioHapticManager @Inject constructor(
                     AudioAttributes.Builder()
                         .setUsage(AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
                         .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-                        .build()
+                        .build(),
                 )
                 .setAcceptsDelayedFocusGain(false)
                 .build()

@@ -16,7 +16,7 @@ import com.example.couchto5k.data.local.entity.ScheduledWorkoutEntity
         ScheduledWorkoutEntity::class,
     ],
     version = 2,
-    exportSchema = false
+    exportSchema = false,
 )
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {

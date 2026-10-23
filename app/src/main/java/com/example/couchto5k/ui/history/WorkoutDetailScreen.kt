@@ -53,55 +53,55 @@ fun WorkoutDetailScreen(
                     .fillMaxSize()
                     .padding(padding),
                 contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 item {
                     // Summary Metric Cards
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         MetricCard(
                             modifier = Modifier.weight(1f),
                             label = "Distance",
-                            value = formatDistanceMiles(workout.distanceMeters)
+                            value = formatDistanceMiles(workout.distanceMeters),
                         )
                         MetricCard(
                             modifier = Modifier.weight(1f),
                             label = "Average Pace",
-                            value = formatPace(workout.distanceMeters, workout.durationSeconds)
+                            value = formatPace(workout.distanceMeters, workout.durationSeconds),
                         )
                     }
                     Spacer(modifier = Modifier.height(8.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         MetricCard(
                             modifier = Modifier.weight(1f),
                             label = "Total Time",
-                            value = formatDuration(workout.durationSeconds)
+                            value = formatDuration(workout.durationSeconds),
                         )
                         MetricCard(
                             modifier = Modifier.weight(1f),
                             label = "Longest Run",
-                            value = formatDuration(workout.longestCompletedRunSeconds)
+                            value = formatDuration(workout.longestCompletedRunSeconds),
                         )
                     }
                     Spacer(modifier = Modifier.height(8.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         MetricCard(
                             modifier = Modifier.weight(1f),
                             label = "Run Time",
-                            value = formatDuration(workout.runningSeconds)
+                            value = formatDuration(workout.runningSeconds),
                         )
                         MetricCard(
                             modifier = Modifier.weight(1f),
                             label = "Walk Time",
-                            value = formatDuration(workout.walkingSeconds)
+                            value = formatDuration(workout.walkingSeconds),
                         )
                     }
                 }
@@ -112,7 +112,7 @@ fun WorkoutDetailScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(200.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                     ) {
                         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             Text("Map Placeholder (Phase 6)", style = MaterialTheme.typography.titleMedium)
@@ -136,11 +136,11 @@ fun WorkoutDetailScreen(
 fun MetricCard(modifier: Modifier = Modifier, label: String, value: String) {
     Card(
         modifier = modifier,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(text = label, style = MaterialTheme.typography.labelMedium)
             Text(text = value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
@@ -155,18 +155,18 @@ fun IntervalDetailItem(interval: CompletedInterval) {
             .fillMaxWidth()
             .padding(vertical = 8.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         Column {
             Text(
                 text = "${interval.sequence + 1}. ${interval.intervalType.name}",
                 style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
             )
             Text(
                 text = "Planned: ${formatDuration(interval.plannedDurationSeconds)} | Actual: ${formatDuration(interval.actualDurationSeconds)}",
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
 

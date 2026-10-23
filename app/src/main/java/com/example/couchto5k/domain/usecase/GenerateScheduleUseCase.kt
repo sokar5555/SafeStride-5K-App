@@ -35,7 +35,7 @@ class GenerateScheduleUseCase @Inject constructor(
                     trainingWorkoutId = id,
                     scheduledDate = currentDate,
                     status = WorkoutStatus.UPCOMING.name,
-                )
+                ),
             )
 
             // Advance to the next preferred day

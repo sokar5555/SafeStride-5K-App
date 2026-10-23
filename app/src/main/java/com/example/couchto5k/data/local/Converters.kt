@@ -6,6 +6,7 @@ import com.example.couchto5k.engine.WorkoutEngineStatus
 import java.time.Instant
 import java.time.LocalDate
 
+@Suppress("unused")
 class Converters {
     @TypeConverter
     fun fromInstant(value: Instant?): Long? {
