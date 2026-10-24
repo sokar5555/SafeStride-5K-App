@@ -139,7 +139,7 @@ class WorkoutTrackingService : Service() {
             "Active Workout Tracking",
             NotificationManager.IMPORTANCE_LOW,
         ).apply {
-            description = "Shows live status and controls for active workout tracking."
+            description = "Shows live status, distance, and controls for active workout tracking."
         }
         notificationManager.createNotificationChannel(channel)
     }
@@ -161,21 +161,57 @@ class WorkoutTrackingService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
+        // Notification Action: Pause / Resume
+        val pauseResumeActionIntent = Intent(this, WorkoutTrackingService::class.java).apply {
+            action = if (state.isPaused) ACTION_RESUME else ACTION_PAUSE
+        }
+        val pauseResumePendingIntent = PendingIntent.getService(
+            this,
+            1,
+            pauseResumeActionIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        val pauseResumeTitle = if (state.isPaused) "Resume" else "Pause"
+
+        // Notification Action: Stop
+        val stopActionIntent = Intent(this, WorkoutTrackingService::class.java).apply {
+            action = ACTION_STOP
+        }
+        val stopPendingIntent = PendingIntent.getService(
+            this,
+            2,
+            stopActionIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+
         val intervalName = state.currentInterval?.type?.name ?: "WORKOUT"
         val remainingSeconds = (state.intervalRemainingMillis / 1000).toInt()
-        val minutes = remainingSeconds / 60
-        val seconds = remainingSeconds % 60
-        val formattedTime = String.format(Locale.getDefault(), "%d:%02d", minutes, seconds)
+        val remMin = remainingSeconds / 60
+        val remSec = remainingSeconds % 60
+        val formattedRemaining = String.format(Locale.getDefault(), "%d:%02d", remMin, remSec)
 
-        val contentText = "$intervalName • $formattedTime remaining"
+        val miles = state.distanceMeters / 1609.344
+        val formattedMiles = String.format(Locale.getDefault(), "%.2f mi", miles)
+
+        val elapsedSeconds = (state.totalElapsedMillis / 1000).toInt()
+        val elapsedMin = elapsedSeconds / 60
+        val elapsedSec = elapsedSeconds % 60
+        val formattedElapsed = String.format(Locale.getDefault(), "%d:%02d", elapsedMin, elapsedSec)
+
+        val titleText = "SafeStride 5K • $intervalName"
+        val contentText = "$formattedMiles • $formattedRemaining remaining"
+        val subText = "Total: $formattedElapsed"
 
         return NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
-            .setContentTitle("SafeStride 5K Workout")
+            .setContentTitle(titleText)
             .setContentText(contentText)
+            .setSubText(subText)
             .setSmallIcon(android.R.drawable.ic_media_play)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
             .setSilent(true)
+            .addAction(android.R.drawable.ic_media_pause, pauseResumeTitle, pauseResumePendingIntent)
+            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Stop", stopPendingIntent)
             .build()
     }
 
