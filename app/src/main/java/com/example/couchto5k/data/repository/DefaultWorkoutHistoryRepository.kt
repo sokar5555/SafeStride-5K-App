@@ -46,52 +46,53 @@ class DefaultWorkoutHistoryRepository @Inject constructor(
         var runningSeconds = 0
         var walkingSeconds = 0
 
-        for (interval in workout.intervals) {
+        for ((_, type, durationSeconds) in workout.intervals) {
             val remainingTimeInWorkout = totalElapsedSeconds - accumulatedTime
-            val isCooldownCompleted = (state.status == WorkoutEngineStatus.COMPLETED) && (interval.type == IntervalType.COOLDOWN)
+            val isCooldownCompleted = (state.status == WorkoutEngineStatus.COMPLETED) && (type == IntervalType.COOLDOWN)
 
             val actualDuration = if (isCooldownCompleted) {
-                interval.durationSeconds
+                durationSeconds
             } else if (accumulatedTime >= totalElapsedSeconds) {
                 0
             } else {
-                min(interval.durationSeconds, maxOf(0, remainingTimeInWorkout))
+                min(durationSeconds, maxOf(0, remainingTimeInWorkout))
             }
 
-            val isCompleted = actualDuration >= interval.durationSeconds
+            val isCompleted = actualDuration >= durationSeconds
 
             completedIntervals.add(
                 CompletedIntervalEntity(
                     completedWorkoutId = 0, // Assigned later
-                    sequence = interval.sequence,
-                    intervalType = interval.type,
-                    plannedDurationSeconds = interval.durationSeconds,
+                    sequence = completedIntervals.size,
+                    intervalType = type,
+                    plannedDurationSeconds = durationSeconds,
                     actualDurationSeconds = actualDuration,
                     completed = isCompleted,
-                )
+                ),
             )
 
-            if (interval.type == IntervalType.RUN) {
+            if (type == IntervalType.RUN) {
                 runningSeconds += actualDuration
                 currentContinuousRunSeconds += actualDuration
                 if (currentContinuousRunSeconds > longestRunSeconds) {
                     longestRunSeconds = currentContinuousRunSeconds
                 }
                 if (!isCompleted) {
-                    currentContinuousRunSeconds = 0 // Break streak if not fully completed?
+                    currentContinuousRunSeconds = 0 // Break streak if not fully completed
                 }
             } else {
                 currentContinuousRunSeconds = 0
                 walkingSeconds += actualDuration
             }
 
-            accumulatedTime += interval.durationSeconds
+            accumulatedTime += durationSeconds
         }
 
         val totalWorkoutDurationSeconds = maxOf(totalElapsedSeconds, completedIntervals.sumOf { it.actualDurationSeconds })
 
         val entity = CompletedWorkoutEntity(
             trainingWorkoutId = workout.id,
+            scheduledWorkoutId = null,
             title = workout.title,
             startedAt = state.startedAt,
             completedAt = Instant.now(),
@@ -99,9 +100,9 @@ class DefaultWorkoutHistoryRepository @Inject constructor(
             runningSeconds = runningSeconds,
             walkingSeconds = walkingSeconds,
             distanceMeters = state.distanceMeters,
-            averagePaceSecondsPerKm = 0.0, // Calculate when distance > 0
+            averagePaceSecondsPerKm = 0.0,
             longestCompletedRunSeconds = longestRunSeconds,
-            status = state.status
+            status = state.status,
         )
 
         val workoutId = completedWorkoutDao.insertCompletedWorkout(entity)
@@ -113,12 +114,18 @@ class DefaultWorkoutHistoryRepository @Inject constructor(
     override suspend fun deleteWorkout(id: Long) {
         completedWorkoutDao.deleteCompletedWorkout(id)
     }
+
+    override suspend fun clearAllHistory() {
+        completedWorkoutDao.clearAllCompletedIntervals()
+        completedWorkoutDao.clearAllCompletedWorkouts()
+    }
 }
 
 fun WorkoutWithIntervals.toDomainModel(): CompletedWorkoutDetails {
     val completedWorkout = CompletedWorkout(
         id = workout.id,
         trainingWorkoutId = workout.trainingWorkoutId,
+        scheduledWorkoutId = workout.scheduledWorkoutId,
         title = workout.title,
         startedAt = workout.startedAt,
         completedAt = workout.completedAt,
@@ -128,7 +135,7 @@ fun WorkoutWithIntervals.toDomainModel(): CompletedWorkoutDetails {
         distanceMeters = workout.distanceMeters,
         averagePaceSecondsPerKm = workout.averagePaceSecondsPerKm,
         longestCompletedRunSeconds = workout.longestCompletedRunSeconds,
-        status = workout.status
+        status = workout.status,
     )
 
     val completedIntervals = intervals.map {
@@ -138,7 +145,7 @@ fun WorkoutWithIntervals.toDomainModel(): CompletedWorkoutDetails {
             intervalType = it.intervalType,
             plannedDurationSeconds = it.plannedDurationSeconds,
             actualDurationSeconds = it.actualDurationSeconds,
-            completed = it.completed
+            completed = it.completed,
         )
     }
 

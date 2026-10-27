@@ -27,4 +27,10 @@ interface CompletedWorkoutDao {
 
     @Query("DELETE FROM completed_workouts WHERE id = :id")
     suspend fun deleteCompletedWorkout(id: Long)
+
+    @Query("DELETE FROM completed_workouts")
+    suspend fun clearAllCompletedWorkouts()
+
+    @Query("DELETE FROM completed_intervals")
+    suspend fun clearAllCompletedIntervals()
 }

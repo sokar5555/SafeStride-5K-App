@@ -13,19 +13,25 @@ import javax.inject.Inject
 
 @HiltViewModel
 class HistoryViewModel @Inject constructor(
-    private val repository: WorkoutHistoryRepository
+    private val repository: WorkoutHistoryRepository,
 ) : ViewModel() {
 
     val history: StateFlow<List<CompletedWorkoutDetails>> = repository.getHistory()
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
-            initialValue = emptyList()
+            initialValue = emptyList(),
         )
 
     fun deleteWorkout(id: Long) {
         viewModelScope.launch {
             repository.deleteWorkout(id)
+        }
+    }
+
+    fun clearAllHistory() {
+        viewModelScope.launch {
+            repository.clearAllHistory()
         }
     }
 }

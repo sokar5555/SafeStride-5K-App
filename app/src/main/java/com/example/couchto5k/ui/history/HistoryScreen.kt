@@ -6,6 +6,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -15,10 +16,12 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.couchto5k.domain.model.CompletedWorkoutDetails
 import com.example.couchto5k.engine.WorkoutEngineStatus
+import com.example.couchto5k.ui.utils.formatDistanceMiles
+import com.example.couchto5k.ui.utils.formatDuration
+import com.example.couchto5k.ui.utils.formatPace
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
-import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -28,11 +31,22 @@ fun HistoryScreen(
 ) {
     val history by viewModel.history.collectAsState()
     var workoutToDelete by remember { mutableStateOf<Long?>(null) }
+    var showClearAllDialog by remember { mutableStateOf(value = false) }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Workout History") },
+                actions = {
+                    if (history.isNotEmpty()) {
+                        IconButton(onClick = { showClearAllDialog = true }) {
+                            Icon(
+                                imageVector = Icons.Default.DeleteSweep,
+                                contentDescription = "Clear Workout History",
+                            )
+                        }
+                    }
+                },
             )
         },
     ) { padding ->
@@ -57,7 +71,7 @@ fun HistoryScreen(
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                items(history, key = { it.workout.id }) { item ->
+                items(history, key = { (workout) -> workout.id }) { item ->
                     WorkoutHistoryCard(
                         details = item,
                         onClick = { onWorkoutClick(item.workout.id) },
@@ -77,7 +91,7 @@ fun HistoryScreen(
                         onClick = {
                             workoutToDelete?.let { viewModel.deleteWorkout(it) }
                             workoutToDelete = null
-                        }
+                        },
                     ) {
                         Text("Delete", color = MaterialTheme.colorScheme.error)
                     }
@@ -86,7 +100,30 @@ fun HistoryScreen(
                     TextButton(onClick = { workoutToDelete = null }) {
                         Text("Cancel")
                     }
-                }
+                },
+            )
+        }
+
+        if (showClearAllDialog) {
+            AlertDialog(
+                onDismissRequest = { showClearAllDialog = false },
+                title = { Text("Clear Workout History?") },
+                text = { Text("Are you sure you want to clear all completed workout history? This action cannot be undone.") },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            viewModel.clearAllHistory()
+                            showClearAllDialog = false
+                        },
+                    ) {
+                        Text("Clear All", color = MaterialTheme.colorScheme.error)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showClearAllDialog = false }) {
+                        Text("Cancel")
+                    }
+                },
             )
         }
     }
@@ -98,7 +135,7 @@ fun WorkoutHistoryCard(
     onClick: () -> Unit,
     onDeleteClick: () -> Unit,
 ) {
-    val workout = details.workout
+    val (workout) = details
     val formatter = DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT)
         .withZone(ZoneId.systemDefault())
 
@@ -112,28 +149,28 @@ fun WorkoutHistoryCard(
             .fillMaxWidth()
             .clickable(onClick = onClick),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        )
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+        ),
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
                     text = workout.title,
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
                 )
                 IconButton(onClick = onDeleteClick) {
                     Icon(
                         imageVector = Icons.Default.Delete,
                         contentDescription = "Delete Workout",
-                        tint = MaterialTheme.colorScheme.error
+                        tint = MaterialTheme.colorScheme.error,
                     )
                 }
             }
@@ -141,45 +178,57 @@ fun WorkoutHistoryCard(
             Text(
                 text = formatter.format(workout.startedAt),
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
             Row(
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text(
+                    text = "Distance: ${formatDistanceMiles(workout.distanceMeters)}",
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                Text(
+                    text = "Pace: ${formatPace(workout.distanceMeters, workout.durationSeconds)}",
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 Text(
                     text = "Total: ${formatDuration(workout.durationSeconds)}",
-                    style = MaterialTheme.typography.bodyMedium
+                    style = MaterialTheme.typography.bodyMedium,
                 )
                 Text(
                     text = "Run: ${formatDuration(workout.runningSeconds)}",
-                    style = MaterialTheme.typography.bodyMedium
+                    style = MaterialTheme.typography.bodyMedium,
                 )
             }
 
             Text(
                 text = "Longest Run: ${formatDuration(workout.longestCompletedRunSeconds)}",
-                style = MaterialTheme.typography.bodyMedium
+                style = MaterialTheme.typography.bodyMedium,
             )
 
             Surface(
                 color = statusColor.copy(alpha = 0.1f),
-                shape = MaterialTheme.shapes.small
+                shape = MaterialTheme.shapes.small,
             ) {
                 Text(
                     text = workout.status.name,
                     color = statusColor,
                     style = MaterialTheme.typography.labelSmall,
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
                 )
             }
         }
     }
-}
-
-private fun formatDuration(seconds: Int): String {
-    val m = seconds / 60
-    val s = seconds % 60
-    return String.format(Locale.getDefault(), "%d:%02d", m, s)
 }

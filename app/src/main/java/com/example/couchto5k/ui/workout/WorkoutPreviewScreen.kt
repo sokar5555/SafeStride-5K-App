@@ -368,5 +368,3 @@ private fun formatTime(seconds: Int): String {
         else -> "${s}s"
     }
 }
-
-

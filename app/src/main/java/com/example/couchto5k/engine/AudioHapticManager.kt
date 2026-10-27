@@ -1,6 +1,8 @@
 package com.example.couchto5k.engine
 
 import android.content.Context
+import android.media.AudioAttributes
+import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.media.ToneGenerator
 import android.os.Build
@@ -8,6 +10,7 @@ import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
 import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -30,6 +33,8 @@ class DefaultAudioHapticManager @Inject constructor(
     @param:ApplicationContext private val context: Context,
 ) : AudioHapticManager, TextToSpeech.OnInitListener {
 
+    private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+
     private val vibrator: Vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
         val vibratorManager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
         vibratorManager.defaultVibrator
@@ -46,13 +51,14 @@ class DefaultAudioHapticManager @Inject constructor(
     @Volatile
     private var pendingSpeechMessage: String? = null
 
+    private var audioFocusRequest: AudioFocusRequest? = null
+
     init {
         try {
-            // Stream notification at 75% volume for clear, crisp audibility
-            toneGenerator = ToneGenerator(AudioManager.STREAM_NOTIFICATION, 75)
+            toneGenerator = ToneGenerator(AudioManager.STREAM_MUSIC, 80)
         } catch (_: Exception) {
             try {
-                toneGenerator = ToneGenerator(AudioManager.STREAM_MUSIC, 75)
+                toneGenerator = ToneGenerator(AudioManager.STREAM_NOTIFICATION, 80)
             } catch (_: Exception) {}
         }
 
@@ -66,11 +72,36 @@ class DefaultAudioHapticManager @Inject constructor(
     override fun onInit(status: Int) {
         if (status == TextToSpeech.SUCCESS) {
             try {
+                // Explicitly set high-quality speech audio attributes
+                val audioAttributes = AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                    .build()
+
+                tts?.setAudioAttributes(audioAttributes)
+
                 val result = tts?.setLanguage(Locale.getDefault())
                 if ((result != TextToSpeech.LANG_MISSING_DATA) && (result != TextToSpeech.LANG_NOT_SUPPORTED)) {
-                    tts?.setSpeechRate(1.05f)
+                    tts?.setSpeechRate(1.0f)
                     tts?.setPitch(1.0f)
+
+                    tts?.setOnUtteranceProgressListener(
+                        object : UtteranceProgressListener() {
+                            override fun onStart(utteranceId: String?) {}
+                            override fun onDone(utteranceId: String?) {
+                                abandonAudioFocus()
+                            }
+                            @Suppress("OVERRIDE_DEPRECATION")
+                            override fun onError(utteranceId: String?) {
+                                abandonAudioFocus()
+                            }
+                        },
+                    )
+
                     _isTtsReady.value = true
+
+                    // Warm up native AudioTrack pipeline with silent utterance to eliminate cold-start lag & static
+                    tts?.speak(" ", TextToSpeech.QUEUE_FLUSH, null, "warmup_utterance")
 
                     // Play queued speech message if speak() was called before TTS finished initializing
                     pendingSpeechMessage?.let { msg ->
@@ -84,13 +115,32 @@ class DefaultAudioHapticManager @Inject constructor(
         }
     }
 
+    private fun requestAudioFocus() {
+        try {
+            val focusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
+                .setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                        .build(),
+                )
+                .setAcceptsDelayedFocusGain(false)
+                .build()
+            audioFocusRequest = focusRequest
+            audioManager.requestAudioFocus(focusRequest)
+        } catch (_: Exception) {}
+    }
+
+    private fun abandonAudioFocus() {
+        try {
+            audioFocusRequest?.let { audioManager.abandonAudioFocusRequest(it) }
+        } catch (_: Exception) {}
+    }
+
     override fun playTransitionSound() {
         try {
-            // TONE_PROP_BEEP is a single beep (unlike TONE_PROP_BEEP2 which is a double beep)
             toneGenerator?.startTone(ToneGenerator.TONE_PROP_BEEP, 150)
-        } catch (_: Exception) {
-            // Ignore sound feedback errors
-        }
+        } catch (_: Exception) {}
     }
 
     override fun vibrateTransition() {
@@ -98,15 +148,14 @@ class DefaultAudioHapticManager @Inject constructor(
             val timings = longArrayOf(0, 300, 150, 300)
             val amplitudes = intArrayOf(0, 200, 0, 200)
             vibrator.vibrate(VibrationEffect.createWaveform(timings, amplitudes, -1))
-        } catch (_: Exception) {
-            // Ignore vibration permission or hardware errors
-        }
+        } catch (_: Exception) {}
     }
 
     override fun speak(message: String) {
         try {
             if (_isTtsReady.value) {
                 pendingSpeechMessage = null
+                requestAudioFocus()
                 tts?.speak(message, TextToSpeech.QUEUE_FLUSH, null, "WorkoutEngineTTS")
             } else {
                 // Queue message if TTS is still initializing on cold startup
@@ -118,6 +167,7 @@ class DefaultAudioHapticManager @Inject constructor(
     }
 
     override fun release() {
+        abandonAudioFocus()
         try {
             tts?.stop()
             tts?.shutdown()

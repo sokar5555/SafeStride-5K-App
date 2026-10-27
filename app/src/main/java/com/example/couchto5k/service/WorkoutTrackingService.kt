@@ -66,16 +66,21 @@ class WorkoutTrackingService : Service() {
 
         serviceScope.launch {
             workoutEngine.workoutState.collectLatest { state ->
-                if (state.status == WorkoutEngineStatus.RUNNING) {
-                    updateNotification(state)
-                    startLocationTracking()
-                } else if (state.status == WorkoutEngineStatus.PAUSED) {
-                    updateNotification(state)
-                    stopLocationTracking()
-                } else if (state.status == WorkoutEngineStatus.COMPLETED || state.status == WorkoutEngineStatus.CANCELLED) {
-                    stopLocationTracking()
-                    stopForeground(STOP_FOREGROUND_REMOVE)
-                    stopSelf()
+                when (state.status) {
+                    WorkoutEngineStatus.RUNNING -> {
+                        updateNotification(state)
+                        startLocationTracking()
+                    }
+                    WorkoutEngineStatus.PAUSED -> {
+                        updateNotification(state)
+                        stopLocationTracking()
+                    }
+                    WorkoutEngineStatus.COMPLETED, WorkoutEngineStatus.CANCELLED -> {
+                        stopLocationTracking()
+                        stopForeground(STOP_FOREGROUND_REMOVE)
+                        stopSelf()
+                    }
+                    else -> {}
                 }
             }
         }
@@ -106,11 +111,11 @@ class WorkoutTrackingService : Service() {
     private fun startLocationTracking() {
         if (isTrackingLocation) return
 
-        try {
-            val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 2000)
-                .setMinUpdateIntervalMillis(1000)
-                .build()
+        val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 3000L)
+            .setMinUpdateIntervalMillis(2000L)
+            .build()
 
+        try {
             fusedLocationClient.requestLocationUpdates(
                 locationRequest,
                 locationCallback,
@@ -118,7 +123,7 @@ class WorkoutTrackingService : Service() {
             )
             isTrackingLocation = true
         } catch (e: SecurityException) {
-            Log.e("WorkoutTrackingService", "Missing location permissions", e)
+            Log.e("WorkoutTrackingService", "Location permission not granted: ${e.message}")
         }
     }
 
@@ -128,110 +133,105 @@ class WorkoutTrackingService : Service() {
         isTrackingLocation = false
     }
 
-    override fun onBind(intent: Intent?): android.os.IBinder? {
-        return null
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        serviceScope.cancel()
-    }
-
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        super.onStartCommand(intent, flags, startId)
-        intent?.let {
-            when (it.action) {
-                ACTION_START -> {
-                    startForegroundService()
-                }
-                ACTION_PAUSE -> {
-                    workoutEngine.pause()
-                }
-                ACTION_RESUME -> {
-                    workoutEngine.resume()
-                }
-                ACTION_STOP -> {
-                    workoutEngine.stopWorkout()
-                    stopForeground(STOP_FOREGROUND_REMOVE)
-                    stopSelf()
-                }
-            }
+    private fun createNotificationChannel() {
+        val channel = NotificationChannel(
+            NOTIFICATION_CHANNEL_ID,
+            "Active Workout Tracking",
+            NotificationManager.IMPORTANCE_LOW,
+        ).apply {
+            description = "Shows live status, distance, and controls for active workout tracking."
         }
-        return START_STICKY
-    }
-
-    private fun startForegroundService() {
-        startForeground(NOTIFICATION_ID, buildNotification(workoutEngine.workoutState.value))
+        notificationManager.createNotificationChannel(channel)
     }
 
     private fun updateNotification(state: ActiveWorkoutState) {
         val notification = buildNotification(state)
-        notificationManager.notify(NOTIFICATION_ID, notification)
+        startForeground(NOTIFICATION_ID, notification)
     }
 
     private fun buildNotification(state: ActiveWorkoutState): Notification {
         val intent = Intent(this, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
         }
+
         val pendingIntent = PendingIntent.getActivity(
-            this, 0, intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            this,
+            0,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
-        // Actions
-        val pauseResumeAction = if (state.isPaused) {
-            val resumeIntent = Intent(this, WorkoutTrackingService::class.java).apply { action = ACTION_RESUME }
-            val pendingResume = PendingIntent.getService(this, 1, resumeIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-            NotificationCompat.Action(android.R.drawable.ic_media_play, "Resume", pendingResume)
-        } else {
-            val pauseIntent = Intent(this, WorkoutTrackingService::class.java).apply { action = ACTION_PAUSE }
-            val pendingPause = PendingIntent.getService(this, 2, pauseIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-            NotificationCompat.Action(android.R.drawable.ic_media_pause, "Pause", pendingPause)
+        // Notification Action: Pause / Resume
+        val pauseResumeActionIntent = Intent(this, WorkoutTrackingService::class.java).apply {
+            action = if (state.isPaused) ACTION_RESUME else ACTION_PAUSE
         }
+        val pauseResumePendingIntent = PendingIntent.getService(
+            this,
+            1,
+            pauseResumeActionIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        val pauseResumeTitle = if (state.isPaused) "Resume" else "Pause"
 
-        val stopIntent = Intent(this, WorkoutTrackingService::class.java).apply { action = ACTION_STOP }
-        val pendingStop = PendingIntent.getService(this, 3, stopIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-        val stopAction = NotificationCompat.Action(android.R.drawable.ic_delete, "Stop", pendingStop)
+        // Notification Action: Stop
+        val stopActionIntent = Intent(this, WorkoutTrackingService::class.java).apply {
+            action = ACTION_STOP
+        }
+        val stopPendingIntent = PendingIntent.getService(
+            this,
+            2,
+            stopActionIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
 
-        // Formatting
+        val intervalName = state.currentInterval?.type?.name ?: "WORKOUT"
         val remainingSeconds = (state.intervalRemainingMillis / 1000).toInt()
-        val m = remainingSeconds / 60
-        val s = remainingSeconds % 60
-        val timeRemaining = String.format(Locale.getDefault(), "%d:%02d", m, s)
+        val remMin = remainingSeconds / 60
+        val remSec = remainingSeconds % 60
+        val formattedRemaining = String.format(Locale.getDefault(), "%d:%02d", remMin, remSec)
+
+        val miles = state.distanceMeters / 1609.344
+        val formattedMiles = String.format(Locale.getDefault(), "%.2f mi", miles)
 
         val elapsedSeconds = (state.totalElapsedMillis / 1000).toInt()
-        val em = elapsedSeconds / 60
-        val es = elapsedSeconds % 60
-        val timeElapsed = String.format(Locale.getDefault(), "%d:%02d", em, es)
+        val elapsedMin = elapsedSeconds / 60
+        val elapsedSec = elapsedSeconds % 60
+        val formattedElapsed = String.format(Locale.getDefault(), "%d:%02d", elapsedMin, elapsedSec)
 
-        val miles = state.distanceMeters * 0.000621371
-        val distanceStr = String.format(Locale.getDefault(), "%.2f mi", miles)
-
-        val intervalTypeName = state.currentInterval?.type?.name ?: "STARTING"
-
-        val contentText = "$intervalTypeName • $timeRemaining remaining | $distanceStr • $timeElapsed elapsed"
+        val titleText = "SafeStride 5K • $intervalName"
+        val contentText = "$formattedMiles • $formattedRemaining remaining"
+        val subText = "Total: $formattedElapsed"
 
         return NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
-            .setAutoCancel(false)
-            .setOngoing(true)
-            .setSmallIcon(android.R.drawable.ic_menu_compass)
-            .setContentTitle("SafeStride 5K Workout")
+            .setContentTitle(titleText)
             .setContentText(contentText)
+            .setSubText(subText)
+            .setSmallIcon(android.R.drawable.ic_media_play)
             .setContentIntent(pendingIntent)
-            .addAction(pauseResumeAction)
-            .addAction(stopAction)
-            .setOnlyAlertOnce(true) // prevent sound spam
+            .setOngoing(true)
+            .setSilent(true)
+            .addAction(android.R.drawable.ic_media_pause, pauseResumeTitle, pauseResumePendingIntent)
+            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Stop", stopPendingIntent)
             .build()
     }
 
-    private fun createNotificationChannel() {
-        val channel = NotificationChannel(
-            NOTIFICATION_CHANNEL_ID,
-            "Workout Tracking",
-            NotificationManager.IMPORTANCE_LOW
-        ).apply {
-            description = "Shows ongoing workout timer and distance"
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        when (intent?.action) {
+            ACTION_START -> {
+                updateNotification(workoutEngine.workoutState.value)
+            }
+            ACTION_PAUSE -> workoutEngine.pause()
+            ACTION_RESUME -> workoutEngine.resume()
+            ACTION_STOP -> workoutEngine.stopWorkout()
         }
-        notificationManager.createNotificationChannel(channel)
+        return START_STICKY
+    }
+
+    override fun onBind(intent: Intent) = null
+
+    override fun onDestroy() {
+        super.onDestroy()
+        stopLocationTracking()
+        serviceScope.cancel()
     }
 }

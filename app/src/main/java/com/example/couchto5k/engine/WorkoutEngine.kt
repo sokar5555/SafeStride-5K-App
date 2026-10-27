@@ -1,8 +1,8 @@
 package com.example.couchto5k.engine
 
 import android.os.SystemClock
-import com.example.couchto5k.domain.model.TrainingWorkout
 import com.example.couchto5k.domain.model.IntervalType
+import com.example.couchto5k.domain.model.TrainingWorkout
 import com.example.couchto5k.domain.model.WorkoutInterval
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -42,7 +42,7 @@ class WorkoutEngine @Inject constructor(
 
     fun start(workout: TrainingWorkout) {
         val currentStatus = workoutState.value.status
-        if (activeWorkout != null && currentStatus != WorkoutEngineStatus.COMPLETED && currentStatus != WorkoutEngineStatus.CANCELLED && currentStatus != WorkoutEngineStatus.NOT_STARTED) {
+        if ((activeWorkout != null) && (currentStatus != WorkoutEngineStatus.COMPLETED) && (currentStatus != WorkoutEngineStatus.CANCELLED) && (currentStatus != WorkoutEngineStatus.NOT_STARTED)) {
             stopWorkout()
         }
 
@@ -222,7 +222,7 @@ class WorkoutEngine @Inject constructor(
     private fun formatDuration(seconds: Int): String {
         val min = seconds / 60
         val sec = seconds % 60
-        return if (min > 0 && sec > 0) {
+        return if ((min > 0) && (sec > 0)) {
             "$min minutes $sec seconds"
         } else if (min > 0) {
             if (min == 1) "1 minute" else "$min minutes"

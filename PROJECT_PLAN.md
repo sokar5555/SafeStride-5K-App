@@ -545,7 +545,7 @@ Done when: app builds/opens, bottom navigation works, theme is visible.
   - Gradle & Android Gradle Plugin (AGP)
   - Kotlin 2.0+ & Jetpack Compose Compiler
   - Hilt & Room (KSP compatible versions)
-  - 
+  -
 ### Phase 1 — Training Plan
 Tasks:
 - Domain models

@@ -1,6 +1,11 @@
 package com.example.couchto5k.ui.workout
 
+import android.Manifest
+import android.content.pm.PackageManager
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -46,13 +51,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.couchto5k.domain.model.IntervalType
 import com.example.couchto5k.engine.WorkoutEngineStatus
+import com.example.couchto5k.ui.utils.formatDistanceMiles
+import com.example.couchto5k.ui.utils.formatPace
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -63,8 +72,19 @@ fun ActiveWorkoutScreen(
 ) {
     val state by viewModel.workoutState.collectAsState()
     val currentWorkout by viewModel.currentWorkout.collectAsState()
+    val context = LocalContext.current
 
     var showExitDialog by remember { mutableStateOf(value = false) }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { _ -> }
+
+    LaunchedEffect(Unit) {
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+        }
+    }
 
     BackHandler {
         if ((state.status == WorkoutEngineStatus.RUNNING) || (state.status == WorkoutEngineStatus.PAUSED)) {
@@ -131,7 +151,7 @@ fun ActiveWorkoutScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(24.dp),
+                .padding(horizontal = 24.dp, vertical = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             val interval = state.currentInterval
@@ -139,14 +159,14 @@ fun ActiveWorkoutScreen(
             if (interval != null) {
                 val typeColors = getIntervalColors(interval.type)
 
-                // 1. Interval Step Counter Indicator (e.g., "Interval 3 of 10")
+                // 1. Interval Step Counter Indicator (e.g., "Interval 1 of 14")
                 currentWorkout?.let { workout ->
                     val currentStep = state.currentIntervalIndex + 1
                     val totalSteps = workout.intervals.size
                     Surface(
                         color = MaterialTheme.colorScheme.surfaceVariant,
                         shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.padding(bottom = 16.dp)
+                        modifier = Modifier.padding(bottom = 8.dp)
                     ) {
                         Text(
                             text = "Interval $currentStep of $totalSteps",
@@ -158,25 +178,25 @@ fun ActiveWorkoutScreen(
                     }
                 }
 
-                // 2. Prominent Interval Type Indicator
+                // 2. Prominent Interval Type Indicator (e.g., "WARMUP")
                 Surface(
                     color = typeColors.first,
-                    shape = RoundedCornerShape(24.dp),
+                    shape = RoundedCornerShape(20.dp),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 24.dp)
+                        .padding(bottom = 12.dp)
                 ) {
                     Text(
                         text = interval.type.name,
                         color = typeColors.second,
-                        style = MaterialTheme.typography.headlineLarge,
+                        style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.ExtraBold,
                         textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(vertical = 16.dp)
+                        modifier = Modifier.padding(vertical = 10.dp)
                     )
                 }
 
-                // 2. Large Numeric Interval Countdown Timer
+                // 3. Large Numeric Interval Countdown Timer (e.g., "4:57")
                 val remainingSeconds = (state.intervalRemainingMillis / 1000).toInt()
                 val totalSeconds = interval.durationSeconds
                 val progress = if (totalSeconds > 0) {
@@ -185,26 +205,26 @@ fun ActiveWorkoutScreen(
 
                 Text(
                     text = formatTime(remainingSeconds),
-                    fontSize = 80.sp,
+                    fontSize = 64.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.padding(bottom = 16.dp)
+                    modifier = Modifier.padding(bottom = 8.dp)
                 )
 
-                // 3. Interval Progress Bar
+                // 4. Interval Progress Bar
                 LinearProgressIndicator(
                     progress = { progress },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(16.dp)
-                        .clip(RoundedCornerShape(8.dp)),
+                        .height(10.dp)
+                        .clip(RoundedCornerShape(5.dp)),
                     color = typeColors.second,
                     trackColor = MaterialTheme.colorScheme.surfaceVariant
                 )
 
-                Spacer(modifier = Modifier.height(32.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
-                // 4. "NEXT UP" Preview Chip
+                // 5. "NEXT UP" Preview Chip
                 currentWorkout?.let { workout ->
                     if (state.currentIntervalIndex < (workout.intervals.size - 1)) {
                         val nextInterval = workout.intervals[state.currentIntervalIndex + 1]
@@ -215,7 +235,7 @@ fun ActiveWorkoutScreen(
                             shape = RoundedCornerShape(16.dp)
                         ) {
                             Row(
-                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
@@ -248,9 +268,63 @@ fun ActiveWorkoutScreen(
                     }
                 }
 
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // 6. Live GPS Metrics Card (DISTANCE & AVG PACE) - placed directly in the middle area!
+                val elapsedSeconds = (state.totalElapsedMillis / 1000).toInt()
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 14.dp, horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.SpaceAround,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = formatDistanceMiles(state.distanceMeters),
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                            Text(
+                                text = "DISTANCE",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                            )
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .height(32.dp)
+                                .width(2.dp)
+                                .background(MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.3f))
+                        )
+
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = formatPace(state.distanceMeters, elapsedSeconds),
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                            Text(
+                                text = "AVG PACE",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                            )
+                        }
+                    }
+                }
+
                 Spacer(modifier = Modifier.weight(1f))
 
-                // 5. Total Elapsed Time & Overall Workout Progress
+                // 7. Total Elapsed Time & Overall Workout Progress
                 currentWorkout?.let { workout ->
                     val totalPlanned = workout.totalPlannedDurationSeconds
                     val elapsed = (state.totalElapsedMillis / 1000).toInt()
@@ -292,9 +366,9 @@ fun ActiveWorkoutScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
-                // 6. Controls (Pause/Resume, Skip, Previous)
+                // 8. Controls (Pause/Resume, Skip, Previous)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceEvenly,

@@ -9,6 +9,7 @@ import java.time.Instant
 data class CompletedWorkoutEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val trainingWorkoutId: Long,
+    val scheduledWorkoutId: Long? = null,
     val title: String, // Keep title for easier UI display
     val startedAt: Instant,
     val completedAt: Instant?,

@@ -4,7 +4,9 @@ import androidx.room.TypeConverter
 import com.example.couchto5k.domain.model.IntervalType
 import com.example.couchto5k.engine.WorkoutEngineStatus
 import java.time.Instant
+import java.time.LocalDate
 
+@Suppress("unused")
 class Converters {
     @TypeConverter
     fun fromInstant(value: Instant?): Long? {
@@ -34,5 +36,15 @@ class Converters {
     @TypeConverter
     fun toWorkoutEngineStatus(value: String?): WorkoutEngineStatus? {
         return value?.let { WorkoutEngineStatus.valueOf(it) }
+    }
+
+    @TypeConverter
+    fun fromLocalDate(value: LocalDate?): Long? {
+        return value?.toEpochDay()
+    }
+
+    @TypeConverter
+    fun toLocalDate(value: Long?): LocalDate? {
+        return value?.let { LocalDate.ofEpochDay(it) }
     }
 }

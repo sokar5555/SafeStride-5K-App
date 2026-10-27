@@ -46,7 +46,11 @@ fun AppNavGraph() {
                 }
             }
             composable(BottomNavItem.Calendar.route) {
-                CalendarScreen()
+                CalendarScreen(
+                    onWorkoutClick = { workoutId ->
+                        navController.navigate("workout_preview/$workoutId")
+                    },
+                )
             }
             composable(BottomNavItem.History.route) {
                 HistoryScreen(

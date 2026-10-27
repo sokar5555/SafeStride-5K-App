@@ -100,4 +100,3 @@ fun WorkoutItem(workout: TrainingWorkout, onClick: () -> Unit) {
         }
     }
 }
-
