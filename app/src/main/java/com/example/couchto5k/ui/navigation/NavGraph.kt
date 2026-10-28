@@ -1,7 +1,9 @@
 package com.example.couchto5k.ui.navigation
 
-import androidx.compose.animation.EnterTransition
-import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -22,13 +24,16 @@ import com.example.couchto5k.ui.workout.builder.WorkoutBuilderScreen
 fun AppNavGraph() {
     val navController = rememberNavController()
 
+    // 120ms fast fade retains the visual fade transition while eliminating touch lockout delays
+    val fadeSpec = tween<Float>(durationMillis = 120, easing = FastOutSlowInEasing)
+
     NavHost(
         navController = navController,
         startDestination = BottomNavItem.Home.route,
-        enterTransition = { EnterTransition.None },
-        exitTransition = { ExitTransition.None },
-        popEnterTransition = { EnterTransition.None },
-        popExitTransition = { ExitTransition.None },
+        enterTransition = { fadeIn(animationSpec = fadeSpec) },
+        exitTransition = { fadeOut(animationSpec = fadeSpec) },
+        popEnterTransition = { fadeIn(animationSpec = fadeSpec) },
+        popExitTransition = { fadeOut(animationSpec = fadeSpec) },
     ) {
         composable(BottomNavItem.Home.route) {
             HomeScreen(
