@@ -10,4 +10,5 @@ interface TrainingPlanRepository {
     suspend fun getWorkoutById(id: Long): TrainingWorkout?
     suspend fun saveCustomWorkout(title: String, intervals: List<WorkoutInterval>): Long
     suspend fun deleteCustomWorkout(id: Long)
+    suspend fun clearAllCustomWorkouts()
 }

@@ -2,12 +2,14 @@ package com.example.couchto5k.ui.home
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -16,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.DirectionsRun
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.AlertDialog
@@ -45,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.couchto5k.domain.model.TrainingWorkout
+import com.example.couchto5k.ui.utils.squishyOverscroll
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -53,10 +57,12 @@ fun HomeScreen(
     onSelectProgramClick: () -> Unit,
     onWorkoutPreviewClick: (Long) -> Unit,
     onStartWorkoutClick: (Long) -> Unit,
+    bottomBar: @Composable () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val customWorkouts by viewModel.customWorkouts.collectAsState()
     var workoutToDelete by remember { mutableStateOf<TrainingWorkout?>(null) }
+    var showClearAllSavedDialog by remember { mutableStateOf(value = false) }
 
     Scaffold(
         topBar = {
@@ -70,12 +76,14 @@ fun HomeScreen(
                 },
             )
         },
+        bottomBar = bottomBar,
     ) { innerPadding ->
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(horizontal = 16.dp),
+                .padding(horizontal = 16.dp)
+                .squishyOverscroll(),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             // Build Custom Workout Feature Card
@@ -174,11 +182,25 @@ fun HomeScreen(
                         .fillMaxWidth()
                         .padding(top = 8.dp),
                 ) {
-                    Text(
-                        text = "Saved Workouts",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = "Saved Workouts",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        if (customWorkouts.isNotEmpty()) {
+                            IconButton(onClick = { showClearAllSavedDialog = true }) {
+                                Icon(
+                                    imageVector = Icons.Default.DeleteSweep,
+                                    contentDescription = "Clear All Saved Workouts",
+                                )
+                            }
+                        }
+                    }
                     Spacer(modifier = Modifier.height(4.dp))
                     HorizontalDivider(
                         modifier = Modifier.fillMaxWidth(),
@@ -259,6 +281,29 @@ fun HomeScreen(
             },
         )
     }
+
+    if (showClearAllSavedDialog) {
+        AlertDialog(
+            onDismissRequest = { showClearAllSavedDialog = false },
+            title = { Text("Clear All Saved Workouts?") },
+            text = { Text("Are you sure you want to delete all saved custom workouts? This action cannot be undone.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.clearAllCustomWorkouts()
+                        showClearAllSavedDialog = false
+                    },
+                ) {
+                    Text("Clear All", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearAllSavedDialog = false }) {
+                    Text("Cancel")
+                }
+            },
+        )
+    }
 }
 
 @Composable
@@ -314,21 +359,43 @@ private fun SavedWorkoutCard(
                 Button(
                     onClick = onStartClick,
                     modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
                     shape = RoundedCornerShape(8.dp),
                 ) {
-                    Icon(imageVector = Icons.Default.PlayArrow, contentDescription = null)
+                    Icon(
+                        imageVector = Icons.Default.PlayArrow,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("START NOW", fontWeight = FontWeight.Bold)
+                    Text(
+                        text = "START NOW",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp,
+                        maxLines = 1,
+                        softWrap = false,
+                    )
                 }
 
                 OutlinedButton(
                     onClick = onPreviewClick,
                     modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
                     shape = RoundedCornerShape(8.dp),
                 ) {
-                    Icon(imageVector = Icons.Default.Visibility, contentDescription = null)
+                    Icon(
+                        imageVector = Icons.Default.Visibility,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("PREVIEW", fontWeight = FontWeight.Bold)
+                    Text(
+                        text = "PREVIEW",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp,
+                        maxLines = 1,
+                        softWrap = false,
+                    )
                 }
             }
         }

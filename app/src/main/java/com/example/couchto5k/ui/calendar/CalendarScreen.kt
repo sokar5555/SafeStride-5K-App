@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.couchto5k.domain.model.ScheduledWorkout
 import com.example.couchto5k.domain.model.WorkoutStatus
+import com.example.couchto5k.ui.utils.squishyOverscroll
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
@@ -38,6 +39,7 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun CalendarScreen(
     onWorkoutClick: (Long) -> Unit = {},
+    bottomBar: @Composable () -> Unit = {},
     viewModel: CalendarViewModel = hiltViewModel(),
 ) {
     val schedule by viewModel.schedule.collectAsState()
@@ -73,30 +75,38 @@ fun CalendarScreen(
                 },
             )
         },
+        bottomBar = bottomBar,
     ) { padding ->
-        Column(
+        val filteredList = if (selectedDate != null) {
+            schedule.filter { it.scheduledDate == selectedDate }
+        } else {
+            schedule
+        }
+
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(horizontal = 16.dp, vertical = 8.dp)
+                .padding(horizontal = 16.dp)
+                .squishyOverscroll(),
+            contentPadding = PaddingValues(vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             // 1. Settings Summary Card
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { showSettingsDialog = true },
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant
-                )
-            ) {
-                Row(
+            item {
+                Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                        .clickable { showSettingsDialog = true },
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
                 ) {
-                    Column {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 12.dp)
+                    ) {
                         Text(
                             text = "Start: ${startDate?.format(DateTimeFormatter.ofPattern("MMM d, yyyy")) ?: "Not set"}",
                             style = MaterialTheme.typography.bodyMedium,
@@ -108,87 +118,78 @@ fun CalendarScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                    Icon(
-                        imageVector = Icons.Filled.Edit,
-                        contentDescription = "Edit Schedule Settings",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp)
-                    )
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // 2. Interactive Month Grid View (Top Half)
-            MonthCalendarCard(
-                displayedMonth = displayedMonth,
-                selectedDate = selectedDate,
-                scheduledWorkouts = schedule,
-                onMonthChange = { displayedMonth = it },
-                onDateSelected = { date ->
-                    selectedDate = if (selectedDate == date) null else date
-                }
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
+            // 2. Interactive Month Grid View
+            item {
+                MonthCalendarCard(
+                    displayedMonth = displayedMonth,
+                    selectedDate = selectedDate,
+                    scheduledWorkouts = schedule,
+                    onMonthChange = { displayedMonth = it },
+                    onDateSelected = { date ->
+                        selectedDate = if (selectedDate == date) null else date
+                    }
+                )
+            }
 
             // 3. Filter Header Bar
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                if (selectedDate != null) {
-                    Text(
-                        text = "Date: ${selectedDate?.format(DateTimeFormatter.ofPattern("EEE, MMM d, yyyy"))}",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    TextButton(onClick = { selectedDate = null }) {
-                        Icon(
-                            imageVector = Icons.Default.FilterListOff,
-                            contentDescription = "Show All",
-                            modifier = Modifier.size(16.dp)
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (selectedDate != null) {
+                        Text(
+                            text = "Date: ${selectedDate?.format(DateTimeFormatter.ofPattern("EEE, MMM d, yyyy"))}",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
                         )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Show All")
+                        TextButton(onClick = { selectedDate = null }) {
+                            Icon(
+                                imageVector = Icons.Default.FilterListOff,
+                                contentDescription = "Show All",
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Show All")
+                        }
+                    } else {
+                        Text(
+                            text = "Scheduled Workouts",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
-                } else {
-                    Text(
-                        text = "Scheduled Workouts",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // 4. Workout Detail Cards / Rest Day View (Bottom Half)
-            val filteredList = if (selectedDate != null) {
-                schedule.filter { it.scheduledDate == selectedDate }
-            } else {
-                schedule
-            }
-
+            // 4. Workout Detail Cards / Rest Day View
             if (schedule.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(150.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator()
+                    }
                 }
             } else if ((selectedDate != null) && filteredList.isEmpty()) {
-                // Rest day message when a non-workout day is tapped in the grid
-                RestDayCard(date = selectedDate!!)
+                item {
+                    RestDayCard(date = selectedDate!!)
+                }
             } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(filteredList, key = { it.id }) { workout ->
-                        ScheduledWorkoutItem(
-                            workout = workout,
-                            onClick = { onWorkoutClick(workout.trainingWorkoutId) }
-                        )
-                    }
+                items(filteredList, key = { it.id }) { workout ->
+                    ScheduledWorkoutItem(
+                        workout = workout,
+                        onClick = { onWorkoutClick(workout.trainingWorkoutId) }
+                    )
                 }
             }
         }

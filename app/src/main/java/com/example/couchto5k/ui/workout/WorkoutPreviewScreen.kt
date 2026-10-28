@@ -45,9 +45,12 @@ import com.example.couchto5k.domain.model.IntervalType
 import com.example.couchto5k.domain.model.TrainingWorkout
 import com.example.couchto5k.domain.model.WorkoutInterval
 import android.Manifest
+import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -57,6 +60,7 @@ fun WorkoutPreviewScreen(
     onBack: () -> Unit,
     viewModel: WorkoutPreviewViewModel = hiltViewModel(),
 ) {
+    val context = LocalContext.current
     val workout by viewModel.workout.collectAsState()
 
     val permissionsLauncher = rememberLauncherForActivityResult(
@@ -88,7 +92,7 @@ fun WorkoutPreviewScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding),
-                contentAlignment = Alignment.Center
+                contentAlignment = Alignment.Center,
             ) {
                 CircularProgressIndicator()
             }
@@ -139,17 +143,20 @@ fun WorkoutPreviewScreen(
             // Start button
             Button(
                 onClick = {
-                    val permissions = mutableListOf(
-                        Manifest.permission.ACCESS_FINE_LOCATION,
-                        Manifest.permission.ACCESS_COARSE_LOCATION
-                    )
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                        permissions.add(Manifest.permission.POST_NOTIFICATIONS)
+                    val hasFine = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                    val hasCoarse = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                    if (hasFine || hasCoarse) {
+                        onStartClick()
+                    } else {
+                        val permissions = mutableListOf(
+                            Manifest.permission.ACCESS_FINE_LOCATION,
+                            Manifest.permission.ACCESS_COARSE_LOCATION
+                        )
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            permissions.add(Manifest.permission.POST_NOTIFICATIONS)
+                        }
+                        permissionsLauncher.launch(permissions.toTypedArray())
                     }
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                        permissions.add(Manifest.permission.FOREGROUND_SERVICE_LOCATION)
-                    }
-                    permissionsLauncher.launch(permissions.toTypedArray())
                 },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -165,7 +172,9 @@ fun WorkoutPreviewScreen(
                 Text(
                     text = "START WORKOUT",
                     fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp
+                    fontSize = 16.sp,
+                    maxLines = 1,
+                    softWrap = false,
                 )
             }
         }
