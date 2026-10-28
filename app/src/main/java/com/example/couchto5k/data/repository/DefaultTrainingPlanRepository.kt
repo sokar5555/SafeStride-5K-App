@@ -23,6 +23,7 @@ class DefaultTrainingPlanRepository @Inject constructor(
         override fun getAllCustomWorkouts(): Flow<List<CustomWorkoutWithIntervals>> = flowOf(emptyList())
         override suspend fun getCustomWorkoutById(id: Long): CustomWorkoutWithIntervals? = null
         override suspend fun deleteCustomWorkout(id: Long) {}
+        override suspend fun deleteAllCustomWorkouts() {}
     })
 
     override fun getAllWorkouts(): Flow<List<TrainingWorkout>> = flowOf(workouts)
@@ -63,6 +64,10 @@ class DefaultTrainingPlanRepository @Inject constructor(
             val dbId = id - CUSTOM_WORKOUT_OFFSET
             customWorkoutDao.deleteCustomWorkout(dbId)
         }
+    }
+
+    override suspend fun clearAllCustomWorkouts() {
+        customWorkoutDao.deleteAllCustomWorkouts()
     }
 
     companion object {

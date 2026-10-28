@@ -18,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.DirectionsRun
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.AlertDialog
@@ -61,6 +62,7 @@ fun HomeScreen(
 ) {
     val customWorkouts by viewModel.customWorkouts.collectAsState()
     var workoutToDelete by remember { mutableStateOf<TrainingWorkout?>(null) }
+    var showClearAllSavedDialog by remember { mutableStateOf(value = false) }
 
     Scaffold(
         topBar = {
@@ -180,11 +182,25 @@ fun HomeScreen(
                         .fillMaxWidth()
                         .padding(top = 8.dp),
                 ) {
-                    Text(
-                        text = "Saved Workouts",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = "Saved Workouts",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        if (customWorkouts.isNotEmpty()) {
+                            IconButton(onClick = { showClearAllSavedDialog = true }) {
+                                Icon(
+                                    imageVector = Icons.Default.DeleteSweep,
+                                    contentDescription = "Clear All Saved Workouts",
+                                )
+                            }
+                        }
+                    }
                     Spacer(modifier = Modifier.height(4.dp))
                     HorizontalDivider(
                         modifier = Modifier.fillMaxWidth(),
@@ -260,6 +276,29 @@ fun HomeScreen(
             },
             dismissButton = {
                 TextButton(onClick = { workoutToDelete = null }) {
+                    Text("Cancel")
+                }
+            },
+        )
+    }
+
+    if (showClearAllSavedDialog) {
+        AlertDialog(
+            onDismissRequest = { showClearAllSavedDialog = false },
+            title = { Text("Clear All Saved Workouts?") },
+            text = { Text("Are you sure you want to delete all saved custom workouts? This action cannot be undone.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.clearAllCustomWorkouts()
+                        showClearAllSavedDialog = false
+                    },
+                ) {
+                    Text("Clear All", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearAllSavedDialog = false }) {
                     Text("Cancel")
                 }
             },

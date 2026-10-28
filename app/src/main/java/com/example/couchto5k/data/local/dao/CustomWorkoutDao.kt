@@ -28,4 +28,7 @@ interface CustomWorkoutDao {
 
     @Query("DELETE FROM custom_workouts WHERE id = :id")
     suspend fun deleteCustomWorkout(id: Long)
+
+    @Query("DELETE FROM custom_workouts")
+    suspend fun deleteAllCustomWorkouts()
 }

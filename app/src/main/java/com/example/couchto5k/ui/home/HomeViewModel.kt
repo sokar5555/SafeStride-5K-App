@@ -29,4 +29,10 @@ class HomeViewModel @Inject constructor(
             trainingPlanRepository.deleteCustomWorkout(workoutId)
         }
     }
+
+    fun clearAllCustomWorkouts() {
+        viewModelScope.launch {
+            trainingPlanRepository.clearAllCustomWorkouts()
+        }
+    }
 }

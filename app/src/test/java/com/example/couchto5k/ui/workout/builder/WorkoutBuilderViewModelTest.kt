@@ -157,5 +157,9 @@ class WorkoutBuilderViewModelTest {
         override suspend fun deleteCustomWorkout(id: Long) {
             savedWorkouts.removeAll { it.id == id }
         }
+
+        override suspend fun clearAllCustomWorkouts() {
+            savedWorkouts.clear()
+        }
     }
 }
