@@ -39,6 +39,7 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun CalendarScreen(
     onWorkoutClick: (Long) -> Unit = {},
+    bottomBar: @Composable () -> Unit = {},
     viewModel: CalendarViewModel = hiltViewModel(),
 ) {
     val schedule by viewModel.schedule.collectAsState()
@@ -74,6 +75,7 @@ fun CalendarScreen(
                 },
             )
         },
+        bottomBar = bottomBar,
     ) { padding ->
         val filteredList = if (selectedDate != null) {
             schedule.filter { it.scheduledDate == selectedDate }

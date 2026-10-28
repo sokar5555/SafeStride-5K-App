@@ -54,6 +54,7 @@ fun HomeScreen(
     onSelectProgramClick: () -> Unit,
     onWorkoutPreviewClick: (Long) -> Unit,
     onStartWorkoutClick: (Long) -> Unit,
+    bottomBar: @Composable () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val customWorkouts by viewModel.customWorkouts.collectAsState()
@@ -71,6 +72,7 @@ fun HomeScreen(
                 },
             )
         },
+        bottomBar = bottomBar,
     ) { innerPadding ->
         LazyColumn(
             modifier = Modifier

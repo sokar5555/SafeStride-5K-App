@@ -29,6 +29,7 @@ import java.time.format.FormatStyle
 fun HistoryScreen(
     viewModel: HistoryViewModel = hiltViewModel(),
     onWorkoutClick: (Long) -> Unit = {},
+    bottomBar: @Composable () -> Unit = {},
 ) {
     val history by viewModel.history.collectAsState()
     var workoutToDelete by remember { mutableStateOf<Long?>(null) }
@@ -50,6 +51,7 @@ fun HistoryScreen(
                 },
             )
         },
+        bottomBar = bottomBar,
     ) { padding ->
         if (history.isEmpty()) {
             Box(
