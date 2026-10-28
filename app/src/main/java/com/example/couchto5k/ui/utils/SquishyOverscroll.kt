@@ -26,6 +26,9 @@ import kotlin.math.abs
  * When pulling past the top or bottom bounds, the container stretches vertically (scaleY),
  * squishes horizontally (scaleX), and spring-bounces back when released.
  *
+ * Includes threshold filtering to prevent tap micro-movements at list edges from
+ * shifting layout cards during press/click gestures.
+ *
  * @param maxOverscrollPx Maximum pixels of displacement allowed.
  * @param stretchIntensity Factor controlling how much scale deformation occurs.
  */
@@ -71,8 +74,10 @@ fun Modifier.squishyOverscroll(
             ): Offset {
                 if (source == NestedScrollSource.Drag) {
                     val delta = available.y
-                    if (delta != 0f) {
-                        val current = overscrollOffset.value
+                    val current = overscrollOffset.value
+                    // Require delta > 8px threshold before starting overscroll from rest (0f)
+                    // to prevent tap micro-movements at boundaries from displacing cards during clicks.
+                    if (current != 0f || abs(delta) > 8f) {
                         val newOffset = (current + delta * 0.133f).coerceIn(-maxOverscrollPx, maxOverscrollPx)
                         coroutineScope.launch {
                             overscrollOffset.snapTo(newOffset)
