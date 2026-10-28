@@ -77,7 +77,7 @@ fun ActiveWorkoutScreen(
     var showExitDialog by remember { mutableStateOf(value = false) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission()
+        contract = ActivityResultContracts.RequestPermission(),
     ) { _ -> }
 
     LaunchedEffect(Unit) {
@@ -94,7 +94,7 @@ fun ActiveWorkoutScreen(
         }
     }
 
-    val isMatchingWorkout = currentWorkout != null && state.workoutId == currentWorkout?.id
+    val isMatchingWorkout = (currentWorkout != null) && (state.workoutId == currentWorkout?.id)
     val isFinished = isMatchingWorkout && ((state.status == WorkoutEngineStatus.COMPLETED) || (state.status == WorkoutEngineStatus.CANCELLED))
 
     if (isFinished) {

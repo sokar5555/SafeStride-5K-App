@@ -51,7 +51,7 @@ fun Modifier.squishyOverscroll(
                 val current = overscrollOffset.value
                 if ((source == NestedScrollSource.Drag) && (current != 0f)) {
                     val delta = available.y
-                    if ((current > 0f && delta < 0f) || (current < 0f && delta > 0f)) {
+                    if (((current > 0f) && (delta < 0f)) || ((current < 0f) && (delta > 0f))) {
                         val newOffset = if (current > 0f) {
                             (current + delta * 0.15f).coerceAtLeast(0f)
                         } else {
@@ -70,7 +70,7 @@ fun Modifier.squishyOverscroll(
             override fun onPostScroll(
                 consumed: Offset,
                 available: Offset,
-                source: NestedScrollSource
+                source: NestedScrollSource,
             ): Offset {
                 if (source == NestedScrollSource.Drag) {
                     val delta = available.y

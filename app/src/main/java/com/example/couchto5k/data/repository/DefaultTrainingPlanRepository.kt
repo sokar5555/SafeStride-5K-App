@@ -17,14 +17,16 @@ class DefaultTrainingPlanRepository @Inject constructor(
     private val customWorkoutDao: CustomWorkoutDao,
 ) : TrainingPlanRepository {
 
-    constructor() : this(object : CustomWorkoutDao {
-        override suspend fun insertCustomWorkout(workout: CustomWorkoutEntity): Long = -1L
-        override suspend fun insertCustomWorkoutIntervals(intervals: List<CustomWorkoutIntervalEntity>) {}
-        override fun getAllCustomWorkouts(): Flow<List<CustomWorkoutWithIntervals>> = flowOf(emptyList())
-        override suspend fun getCustomWorkoutById(id: Long): CustomWorkoutWithIntervals? = null
-        override suspend fun deleteCustomWorkout(id: Long) {}
-        override suspend fun deleteAllCustomWorkouts() {}
-    })
+    constructor() : this(
+        object : CustomWorkoutDao {
+            override suspend fun insertCustomWorkout(workout: CustomWorkoutEntity): Long = -1L
+            override suspend fun insertCustomWorkoutIntervals(intervals: List<CustomWorkoutIntervalEntity>) {}
+            override fun getAllCustomWorkouts(): Flow<List<CustomWorkoutWithIntervals>> = flowOf(emptyList())
+            override suspend fun getCustomWorkoutById(id: Long): CustomWorkoutWithIntervals? = null
+            override suspend fun deleteCustomWorkout(id: Long) {}
+            override suspend fun deleteAllCustomWorkouts() {}
+        },
+    )
 
     override fun getAllWorkouts(): Flow<List<TrainingWorkout>> = flowOf(workouts)
 

@@ -45,7 +45,7 @@ class ActiveWorkoutViewModel @Inject constructor(
 
         viewModelScope.launch {
             workoutState.collectLatest { state ->
-                if (state.status == WorkoutEngineStatus.COMPLETED || state.status == WorkoutEngineStatus.CANCELLED) {
+                if ((state.status == WorkoutEngineStatus.COMPLETED) || (state.status == WorkoutEngineStatus.CANCELLED)) {
                     val workout = _currentWorkout.value
                     if (workout != null && state.totalElapsedMillis > 0) {
                         saveWorkoutHistory(workout, state)
