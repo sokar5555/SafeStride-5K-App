@@ -94,8 +94,11 @@ fun ActiveWorkoutScreen(
         }
     }
 
-    if ((state.status == WorkoutEngineStatus.COMPLETED) || (state.status == WorkoutEngineStatus.CANCELLED)) {
-        LaunchedEffect(state.status) {
+    val isMatchingWorkout = currentWorkout != null && state.workoutId == currentWorkout?.id
+    val isFinished = isMatchingWorkout && ((state.status == WorkoutEngineStatus.COMPLETED) || (state.status == WorkoutEngineStatus.CANCELLED))
+
+    if (isFinished) {
+        LaunchedEffect(state.status, currentWorkout?.id) {
             onExit()
         }
     }
