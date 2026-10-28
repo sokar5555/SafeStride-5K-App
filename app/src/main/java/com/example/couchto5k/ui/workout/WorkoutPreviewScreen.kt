@@ -146,9 +146,6 @@ fun WorkoutPreviewScreen(
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                         permissions.add(Manifest.permission.POST_NOTIFICATIONS)
                     }
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                        permissions.add(Manifest.permission.FOREGROUND_SERVICE_LOCATION)
-                    }
                     permissionsLauncher.launch(permissions.toTypedArray())
                 },
                 modifier = Modifier

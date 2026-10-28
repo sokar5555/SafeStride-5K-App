@@ -3,9 +3,10 @@ package com.example.couchto5k.ui.workout
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.couchto5k.domain.model.TrainingWorkout
 import android.app.Application
 import android.content.Intent
+import androidx.core.content.ContextCompat
+import com.example.couchto5k.domain.model.TrainingWorkout
 import com.example.couchto5k.domain.repository.TrainingPlanRepository
 import com.example.couchto5k.domain.repository.WorkoutHistoryRepository
 import com.example.couchto5k.engine.WorkoutEngine
@@ -73,7 +74,7 @@ class ActiveWorkoutViewModel @Inject constructor(
                 val startIntent = Intent(application, WorkoutTrackingService::class.java).apply {
                     action = WorkoutTrackingService.ACTION_START
                 }
-                application.startService(startIntent)
+                ContextCompat.startForegroundService(application, startIntent)
             }
         }
     }
@@ -82,7 +83,7 @@ class ActiveWorkoutViewModel @Inject constructor(
         val intent = Intent(application, WorkoutTrackingService::class.java).apply {
             this.action = action
         }
-        application.startService(intent)
+        ContextCompat.startForegroundService(application, intent)
     }
 
     fun pause() = sendServiceCommand(WorkoutTrackingService.ACTION_PAUSE)
