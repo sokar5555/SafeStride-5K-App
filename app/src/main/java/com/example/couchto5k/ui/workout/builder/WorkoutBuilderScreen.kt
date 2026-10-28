@@ -29,7 +29,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -126,7 +126,7 @@ fun WorkoutBuilderScreen(
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                // Start Workout Now Button
+                // Preview Workout Now Button
                 Button(
                     onClick = {
                         viewModel.finishBuildingWorkout { workoutId ->
@@ -139,10 +139,10 @@ fun WorkoutBuilderScreen(
                     enabled = !uiState.isSaving,
                     shape = RoundedCornerShape(12.dp),
                 ) {
-                    Icon(imageVector = Icons.Default.PlayArrow, contentDescription = null)
+                    Icon(imageVector = Icons.Default.Visibility, contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "START WORKOUT NOW",
+                        text = "PREVIEW WORKOUT NOW",
                         fontWeight = FontWeight.Bold,
                         fontSize = 15.sp,
                         maxLines = 1,
