@@ -19,6 +19,7 @@ import com.example.couchto5k.engine.WorkoutEngineStatus
 import com.example.couchto5k.ui.utils.formatDistanceMiles
 import com.example.couchto5k.ui.utils.formatDuration
 import com.example.couchto5k.ui.utils.formatPace
+import com.example.couchto5k.ui.utils.squishyOverscroll
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
@@ -67,7 +68,8 @@ fun HistoryScreen(
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(padding),
+                    .padding(padding)
+                    .squishyOverscroll(),
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {

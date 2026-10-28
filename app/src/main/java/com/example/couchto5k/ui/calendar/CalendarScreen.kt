@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.couchto5k.domain.model.ScheduledWorkout
 import com.example.couchto5k.domain.model.WorkoutStatus
+import com.example.couchto5k.ui.utils.squishyOverscroll
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
@@ -84,7 +85,8 @@ fun CalendarScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(horizontal = 16.dp),
+                .padding(horizontal = 16.dp)
+                .squishyOverscroll(),
             contentPadding = PaddingValues(vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {

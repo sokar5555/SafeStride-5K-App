@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.couchto5k.domain.model.TrainingWorkout
+import com.example.couchto5k.ui.utils.squishyOverscroll
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -75,7 +76,8 @@ fun HomeScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(horizontal = 16.dp),
+                .padding(horizontal = 16.dp)
+                .squishyOverscroll(),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             // Build Custom Workout Feature Card
