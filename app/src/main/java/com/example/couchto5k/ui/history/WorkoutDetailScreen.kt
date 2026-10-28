@@ -16,9 +16,21 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.couchto5k.domain.model.CompletedInterval
-import com.example.couchto5k.ui.utils.formatDistanceMiles
+import com.example.couchto5k.ui.utils.formatDistance
 import com.example.couchto5k.ui.utils.formatDuration
 import com.example.couchto5k.ui.utils.formatPace
+import com.google.android.gms.maps.CameraUpdateFactory
+import com.google.android.gms.maps.model.BitmapDescriptorFactory
+import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.maps.model.LatLngBounds
+import com.google.maps.android.compose.CameraPositionState
+import com.google.maps.android.compose.GoogleMap
+import com.google.maps.android.compose.MapProperties
+import com.google.maps.android.compose.MapUiSettings
+import com.google.maps.android.compose.Marker
+import com.google.maps.android.compose.MarkerState
+import com.google.maps.android.compose.Polyline
+import com.google.maps.android.compose.rememberCameraPositionState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -27,6 +39,7 @@ fun WorkoutDetailScreen(
     onBack: () -> Unit,
 ) {
     val details by viewModel.workoutDetails.collectAsState()
+    val distanceUnit by viewModel.distanceUnit.collectAsState()
 
     Scaffold(
         topBar = {
@@ -64,12 +77,12 @@ fun WorkoutDetailScreen(
                         MetricCard(
                             modifier = Modifier.weight(1f),
                             label = "Distance",
-                            value = formatDistanceMiles(workout.distanceMeters),
+                            value = formatDistance(workout.distanceMeters, distanceUnit),
                         )
                         MetricCard(
                             modifier = Modifier.weight(1f),
                             label = "Average Pace",
-                            value = formatPace(workout.distanceMeters, workout.durationSeconds),
+                            value = formatPace(workout.distanceMeters, workout.durationSeconds, distanceUnit),
                         )
                     }
                     Spacer(modifier = Modifier.height(8.dp))
@@ -107,15 +120,64 @@ fun WorkoutDetailScreen(
                 }
 
                 item {
-                    // Placeholder for Map
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(200.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                    ) {
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Text("Map Placeholder (Phase 6)", style = MaterialTheme.typography.titleMedium)
+                    val routePoints = currentDetails.routePoints
+                    if (routePoints.isEmpty()) {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(200.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                        ) {
+                            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                Text("No GPS route recorded for this workout", style = MaterialTheme.typography.titleMedium)
+                            }
+                        }
+                    } else {
+                        val latLngPoints = routePoints.map { LatLng(it.latitude, it.longitude) }
+
+                        val boundsBuilder = LatLngBounds.builder()
+                        latLngPoints.forEach { boundsBuilder.include(it) }
+                        val bounds = boundsBuilder.build()
+
+                        val cameraPositionState = rememberCameraPositionState()
+                        val primaryColor = MaterialTheme.colorScheme.primary
+
+                        LaunchedEffect(bounds) {
+                            cameraPositionState.animate(CameraUpdateFactory.newLatLngBounds(bounds, 100))
+                        }
+
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(300.dp),
+                        ) {
+                            GoogleMap(
+                                modifier = Modifier.fillMaxSize(),
+                                cameraPositionState = cameraPositionState,
+                                uiSettings = MapUiSettings(
+                                    zoomControlsEnabled = true,
+                                    scrollGesturesEnabled = true,
+                                    zoomGesturesEnabled = true
+                                )
+                            ) {
+                                Polyline(
+                                    points = latLngPoints,
+                                    color = primaryColor,
+                                    width = 10f
+                                )
+
+                                Marker(
+                                    state = MarkerState(position = latLngPoints.first()),
+                                    title = "Start",
+                                    icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN)
+                                )
+
+                                Marker(
+                                    state = MarkerState(position = latLngPoints.last()),
+                                    title = "Finish",
+                                    icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)
+                                )
+                            }
                         }
                     }
                 }

@@ -4,6 +4,7 @@ import android.os.SystemClock
 import com.example.couchto5k.domain.model.IntervalType
 import com.example.couchto5k.domain.model.TrainingWorkout
 import com.example.couchto5k.domain.model.WorkoutInterval
+import com.example.couchto5k.location.LocationPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -131,6 +132,12 @@ class WorkoutEngine @Inject constructor(
         if (meters <= 0.0) return
         _workoutState.update {
             it.copy(distanceMeters = it.distanceMeters + meters)
+        }
+    }
+
+    fun addRoutePoint(point: LocationPoint) {
+        _workoutState.update {
+            it.copy(routePoints = it.routePoints + point)
         }
     }
 

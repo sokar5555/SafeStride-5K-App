@@ -60,7 +60,7 @@ import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.couchto5k.domain.model.IntervalType
 import com.example.couchto5k.engine.WorkoutEngineStatus
-import com.example.couchto5k.ui.utils.formatDistanceMiles
+import com.example.couchto5k.ui.utils.formatDistance
 import com.example.couchto5k.ui.utils.formatPace
 import java.util.Locale
 
@@ -288,7 +288,7 @@ fun ActiveWorkoutScreen(
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(
-                                text = formatDistanceMiles(state.distanceMeters),
+                                text = formatDistance(state.distanceMeters),
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.ExtraBold,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer

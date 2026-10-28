@@ -16,7 +16,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.couchto5k.domain.model.CompletedWorkoutDetails
 import com.example.couchto5k.engine.WorkoutEngineStatus
-import com.example.couchto5k.ui.utils.formatDistanceMiles
+import com.example.couchto5k.ui.utils.formatDistance
 import com.example.couchto5k.ui.utils.formatDuration
 import com.example.couchto5k.ui.utils.formatPace
 import com.example.couchto5k.ui.utils.squishyOverscroll
@@ -190,7 +190,7 @@ fun WorkoutHistoryCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 Text(
-                    text = "Distance: ${formatDistanceMiles(workout.distanceMeters)}",
+                    text = "Distance: ${formatDistance(workout.distanceMeters)}",
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary,

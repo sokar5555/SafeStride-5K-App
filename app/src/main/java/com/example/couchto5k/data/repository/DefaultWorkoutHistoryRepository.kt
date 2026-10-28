@@ -8,10 +8,12 @@ import com.example.couchto5k.domain.model.CompletedInterval
 import com.example.couchto5k.domain.model.CompletedWorkout
 import com.example.couchto5k.domain.model.CompletedWorkoutDetails
 import com.example.couchto5k.domain.model.IntervalType
+import com.example.couchto5k.data.local.entity.LocationPointEntity
 import com.example.couchto5k.domain.model.TrainingWorkout
 import com.example.couchto5k.domain.repository.WorkoutHistoryRepository
 import com.example.couchto5k.engine.ActiveWorkoutState
 import com.example.couchto5k.engine.WorkoutEngineStatus
+import com.example.couchto5k.location.LocationPoint
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import java.time.Instant
@@ -29,7 +31,17 @@ class DefaultWorkoutHistoryRepository @Inject constructor(
     }
 
     override suspend fun getWorkoutDetails(id: Long): CompletedWorkoutDetails? {
-        return completedWorkoutDao.getCompletedWorkoutById(id)?.toDomainModel()
+        val workoutDetails = completedWorkoutDao.getCompletedWorkoutById(id)?.toDomainModel() ?: return null
+        val routePoints = completedWorkoutDao.getLocationPointsForWorkout(id).map { entity ->
+            LocationPoint(
+                latitude = entity.latitude,
+                longitude = entity.longitude,
+                altitude = entity.altitude,
+                accuracyMeters = entity.accuracyMeters,
+                timestamp = entity.timestamp
+            )
+        }
+        return workoutDetails.copy(routePoints = routePoints)
     }
 
     override suspend fun saveCompletedWorkout(
@@ -109,6 +121,21 @@ class DefaultWorkoutHistoryRepository @Inject constructor(
 
         val intervalsWithId = completedIntervals.map { it.copy(completedWorkoutId = workoutId) }
         completedWorkoutDao.insertCompletedIntervals(intervalsWithId)
+
+        val locationPoints = state.routePoints.mapIndexed { index, point ->
+            LocationPointEntity(
+                completedWorkoutId = workoutId,
+                sequence = index,
+                timestamp = point.timestamp,
+                latitude = point.latitude,
+                longitude = point.longitude,
+                altitude = point.altitude,
+                accuracyMeters = point.accuracyMeters
+            )
+        }
+        if (locationPoints.isNotEmpty()) {
+            completedWorkoutDao.insertLocationPoints(locationPoints)
+        }
     }
 
     override suspend fun deleteWorkout(id: Long) {
