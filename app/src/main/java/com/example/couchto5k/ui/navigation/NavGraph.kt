@@ -1,5 +1,7 @@
 package com.example.couchto5k.ui.navigation
 
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -23,6 +25,10 @@ fun AppNavGraph() {
     NavHost(
         navController = navController,
         startDestination = BottomNavItem.Home.route,
+        enterTransition = { EnterTransition.None },
+        exitTransition = { ExitTransition.None },
+        popEnterTransition = { EnterTransition.None },
+        popExitTransition = { ExitTransition.None },
     ) {
         composable(BottomNavItem.Home.route) {
             HomeScreen(
