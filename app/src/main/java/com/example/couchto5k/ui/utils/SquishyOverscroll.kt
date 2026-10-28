@@ -3,6 +3,8 @@ package com.example.couchto5k.ui.utils
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
@@ -13,6 +15,8 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.Velocity
 import kotlinx.coroutines.launch
 import kotlin.math.abs
@@ -118,6 +122,16 @@ fun Modifier.squishyOverscroll(
     }
 
     this
+        .pointerInput(Unit) {
+            awaitEachGesture {
+                awaitFirstDown(pass = PointerEventPass.Initial)
+                if (overscrollOffset.value != 0f) {
+                    coroutineScope.launch {
+                        overscrollOffset.snapTo(0f)
+                    }
+                }
+            }
+        }
         .nestedScroll(nestedScrollConnection)
         .graphicsLayer {
             val offset = overscrollOffset.value
