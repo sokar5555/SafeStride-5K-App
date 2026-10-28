@@ -141,7 +141,13 @@ fun WorkoutBuilderScreen(
                 ) {
                     Icon(imageVector = Icons.Default.PlayArrow, contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("START WORKOUT NOW", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Text(
+                        text = "START WORKOUT NOW",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp,
+                        maxLines = 1,
+                        softWrap = false,
+                    )
                 }
 
                 // Finish Building Workout Button
@@ -159,7 +165,13 @@ fun WorkoutBuilderScreen(
                 ) {
                     Icon(imageVector = Icons.Default.Check, contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("FINISH BUILDING WORKOUT", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                    Text(
+                        text = "FINISH BUILDING WORKOUT",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp,
+                        maxLines = 1,
+                        softWrap = false,
+                    )
                 }
             }
         },

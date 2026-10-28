@@ -162,7 +162,9 @@ fun WorkoutPreviewScreen(
                 Text(
                     text = "START WORKOUT",
                     fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp
+                    fontSize = 16.sp,
+                    maxLines = 1,
+                    softWrap = false,
                 )
             }
         }
