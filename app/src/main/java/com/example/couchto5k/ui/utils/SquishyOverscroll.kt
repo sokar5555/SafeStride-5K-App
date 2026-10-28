@@ -26,25 +26,31 @@ import kotlin.math.abs
  * @param stretchIntensity Factor controlling how much scale deformation occurs.
  */
 fun Modifier.squishyOverscroll(
-    maxOverscrollPx: Float = 250f,
-    stretchIntensity: Float = 0.001f,
+    maxOverscrollPx: Float = 100f,
+    stretchIntensity: Float = 0.00033f,
 ): Modifier = composed {
     val coroutineScope = rememberCoroutineScope()
     val overscrollOffset = remember { Animatable(0f) }
+
+    // Stiffness 1800f provides 3x faster spring oscillation speed than StiffnessLow (200f)
+    val snapBackSpec = spring<Float>(
+        dampingRatio = Spring.DampingRatioMediumBouncy,
+        stiffness = 1800f,
+    )
 
     val nestedScrollConnection = remember {
         object : NestedScrollConnection {
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
                 val current = overscrollOffset.value
-                if (source == NestedScrollSource.Drag && current != 0f) {
+                if ((source == NestedScrollSource.Drag) && (current != 0f)) {
                     val delta = available.y
                     if ((current > 0f && delta < 0f) || (current < 0f && delta > 0f)) {
                         val newOffset = if (current > 0f) {
-                            (current + delta * 0.5f).coerceAtLeast(0f)
+                            (current + delta * 0.15f).coerceAtLeast(0f)
                         } else {
-                            (current + delta * 0.5f).coerceAtMost(0f)
+                            (current + delta * 0.15f).coerceAtMost(0f)
                         }
-                        val consumedY = (newOffset - current) / 0.5f
+                        val consumedY = (newOffset - current) / 0.15f
                         coroutineScope.launch {
                             overscrollOffset.snapTo(newOffset)
                         }
@@ -63,7 +69,7 @@ fun Modifier.squishyOverscroll(
                     val delta = available.y
                     if (delta != 0f) {
                         val current = overscrollOffset.value
-                        val newOffset = (current + delta * 0.4f).coerceIn(-maxOverscrollPx, maxOverscrollPx)
+                        val newOffset = (current + delta * 0.133f).coerceIn(-maxOverscrollPx, maxOverscrollPx)
                         coroutineScope.launch {
                             overscrollOffset.snapTo(newOffset)
                         }
@@ -78,10 +84,7 @@ fun Modifier.squishyOverscroll(
                     coroutineScope.launch {
                         overscrollOffset.animateTo(
                             targetValue = 0f,
-                            animationSpec = spring(
-                                dampingRatio = Spring.DampingRatioMediumBouncy,
-                                stiffness = Spring.StiffnessLow
-                            )
+                            animationSpec = snapBackSpec,
                         )
                     }
                 }
@@ -90,31 +93,22 @@ fun Modifier.squishyOverscroll(
 
             override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
                 if (available.y != 0f) {
-                    val flingImpact = (available.y * 0.06f).coerceIn(-maxOverscrollPx * 0.6f, maxOverscrollPx * 0.6f)
+                    val flingImpact = (available.y * 0.02f).coerceIn(-maxOverscrollPx * 0.5f, maxOverscrollPx * 0.5f)
                     coroutineScope.launch {
                         overscrollOffset.animateTo(
                             targetValue = flingImpact,
-                            animationSpec = spring(
-                                dampingRatio = Spring.DampingRatioMediumBouncy,
-                                stiffness = Spring.StiffnessMedium
-                            )
+                            animationSpec = snapBackSpec,
                         )
                         overscrollOffset.animateTo(
                             targetValue = 0f,
-                            animationSpec = spring(
-                                dampingRatio = Spring.DampingRatioMediumBouncy,
-                                stiffness = Spring.StiffnessLow
-                            )
+                            animationSpec = snapBackSpec,
                         )
                     }
                 } else if (overscrollOffset.value != 0f) {
                     coroutineScope.launch {
                         overscrollOffset.animateTo(
                             targetValue = 0f,
-                            animationSpec = spring(
-                                dampingRatio = Spring.DampingRatioMediumBouncy,
-                                stiffness = Spring.StiffnessLow
-                            )
+                            animationSpec = snapBackSpec,
                         )
                     }
                 }
@@ -133,8 +127,8 @@ fun Modifier.squishyOverscroll(
                 val scaleXChange = scaleYChange * 0.35f
 
                 scaleY = 1f + scaleYChange
-                scaleX = (1f - scaleXChange).coerceAtLeast(0.85f)
-                translationY = offset * 0.45f
+                scaleX = (1f - scaleXChange).coerceAtLeast(0.95f)
+                translationY = offset * 0.15f
 
                 transformOrigin = if (offset > 0f) {
                     TransformOrigin(0.5f, 0f)
