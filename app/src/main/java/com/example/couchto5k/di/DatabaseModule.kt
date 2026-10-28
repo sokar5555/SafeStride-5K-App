@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import com.example.couchto5k.data.local.AppDatabase
 import com.example.couchto5k.data.local.dao.CompletedWorkoutDao
+import com.example.couchto5k.data.local.dao.CustomWorkoutDao
 import com.example.couchto5k.data.local.dao.ScheduledWorkoutDao
 import dagger.Module
 import dagger.Provides
@@ -35,5 +36,10 @@ object DatabaseModule {
     @Provides
     fun provideScheduledWorkoutDao(database: AppDatabase): ScheduledWorkoutDao {
         return database.scheduledWorkoutDao()
+    }
+
+    @Provides
+    fun provideCustomWorkoutDao(database: AppDatabase): CustomWorkoutDao {
+        return database.customWorkoutDao()
     }
 }

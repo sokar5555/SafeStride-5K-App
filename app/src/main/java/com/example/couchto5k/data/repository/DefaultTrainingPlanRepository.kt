@@ -1,20 +1,72 @@
 package com.example.couchto5k.data.repository
 
+import com.example.couchto5k.data.local.dao.CustomWorkoutDao
+import com.example.couchto5k.data.local.entity.CustomWorkoutEntity
+import com.example.couchto5k.data.local.entity.CustomWorkoutIntervalEntity
+import com.example.couchto5k.data.local.entity.CustomWorkoutWithIntervals
 import com.example.couchto5k.domain.model.IntervalType
 import com.example.couchto5k.domain.model.TrainingWorkout
 import com.example.couchto5k.domain.model.WorkoutInterval
 import com.example.couchto5k.domain.repository.TrainingPlanRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 
-class DefaultTrainingPlanRepository @Inject constructor() : TrainingPlanRepository {
+class DefaultTrainingPlanRepository @Inject constructor(
+    private val customWorkoutDao: CustomWorkoutDao,
+) : TrainingPlanRepository {
+
+    constructor() : this(object : CustomWorkoutDao {
+        override suspend fun insertCustomWorkout(workout: CustomWorkoutEntity): Long = -1L
+        override suspend fun insertCustomWorkoutIntervals(intervals: List<CustomWorkoutIntervalEntity>) {}
+        override fun getAllCustomWorkouts(): Flow<List<CustomWorkoutWithIntervals>> = flowOf(emptyList())
+        override suspend fun getCustomWorkoutById(id: Long): CustomWorkoutWithIntervals? = null
+        override suspend fun deleteCustomWorkout(id: Long) {}
+    })
 
     override fun getAllWorkouts(): Flow<List<TrainingWorkout>> = flowOf(workouts)
 
-    override suspend fun getWorkoutById(id: Long): TrainingWorkout? = workouts.find { (workoutId) -> workoutId == id }
+    override fun getCustomWorkouts(): Flow<List<TrainingWorkout>> {
+        return customWorkoutDao.getAllCustomWorkouts().map { list ->
+            list.map { it.toTrainingWorkout(CUSTOM_WORKOUT_OFFSET) }
+        }
+    }
+
+    override suspend fun getWorkoutById(id: Long): TrainingWorkout? {
+        return if (id >= CUSTOM_WORKOUT_OFFSET) {
+            val dbId = id - CUSTOM_WORKOUT_OFFSET
+            customWorkoutDao.getCustomWorkoutById(dbId)?.toTrainingWorkout(CUSTOM_WORKOUT_OFFSET)
+        } else {
+            workouts.find { (workoutId) -> workoutId == id }
+        }
+    }
+
+    override suspend fun saveCustomWorkout(title: String, intervals: List<WorkoutInterval>): Long {
+        val customWorkoutEntity = CustomWorkoutEntity(title = title)
+        val workoutId = customWorkoutDao.insertCustomWorkout(customWorkoutEntity)
+
+        val intervalEntities = intervals.mapIndexed { index, interval ->
+            CustomWorkoutIntervalEntity(
+                customWorkoutId = workoutId,
+                sequence = index,
+                intervalType = interval.type,
+                durationSeconds = interval.durationSeconds,
+            )
+        }
+        customWorkoutDao.insertCustomWorkoutIntervals(intervalEntities)
+        return CUSTOM_WORKOUT_OFFSET + workoutId
+    }
+
+    override suspend fun deleteCustomWorkout(id: Long) {
+        if (id >= CUSTOM_WORKOUT_OFFSET) {
+            val dbId = id - CUSTOM_WORKOUT_OFFSET
+            customWorkoutDao.deleteCustomWorkout(dbId)
+        }
+    }
 
     companion object {
+        const val CUSTOM_WORKOUT_OFFSET = 10000L
         private const val WARMUP_DURATION = 5 * 60
         private const val COOLDOWN_DURATION = 5 * 60
 

@@ -4,19 +4,21 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import androidx.navigation.NavType
 import androidx.navigation.navArgument
 import com.example.couchto5k.ui.calendar.CalendarScreen
 import com.example.couchto5k.ui.history.HistoryScreen
 import com.example.couchto5k.ui.history.WorkoutDetailScreen
+import com.example.couchto5k.ui.home.HomeScreen
 import com.example.couchto5k.ui.stats.StatsScreen
+import com.example.couchto5k.ui.workout.ActiveWorkoutScreen
 import com.example.couchto5k.ui.workout.WorkoutPreviewScreen
 import com.example.couchto5k.ui.workout.WorkoutSelectionScreen
-import com.example.couchto5k.ui.workout.ActiveWorkoutScreen
+import com.example.couchto5k.ui.workout.builder.WorkoutBuilderScreen
 
 @Composable
 fun AppNavGraph() {
@@ -40,10 +42,41 @@ fun AppNavGraph() {
             modifier = Modifier.padding(innerPadding),
         ) {
             composable(BottomNavItem.Home.route) {
-                // Currently just delegating to selection screen on Home for Phase 1 MVP
-                WorkoutSelectionScreen { id ->
-                    navController.navigate("workout_preview/$id")
-                }
+                HomeScreen(
+                    onBuildCustomWorkoutClick = {
+                        navController.navigate("workout_builder")
+                    },
+                    onSelectProgramClick = {
+                        navController.navigate("workout_selection")
+                    },
+                    onWorkoutPreviewClick = { workoutId ->
+                        navController.navigate("workout_preview/$workoutId")
+                    },
+                    onStartWorkoutClick = { workoutId ->
+                        navController.navigate("active_workout/$workoutId")
+                    },
+                )
+            }
+            composable("workout_builder") {
+                WorkoutBuilderScreen(
+                    onBack = { navController.popBackStack() },
+                    onFinish = { navController.popBackStack() },
+                    onSetWorkoutNow = { workoutId ->
+                        navController.navigate("workout_preview/$workoutId") {
+                            popUpTo(BottomNavItem.Home.route)
+                        }
+                    },
+                )
+            }
+            composable("workout_selection") {
+                WorkoutSelectionScreen(
+                    onWorkoutClick = { id ->
+                        navController.navigate("workout_preview/$id")
+                    },
+                    onBack = {
+                        navController.popBackStack()
+                    },
+                )
             }
             composable(BottomNavItem.Calendar.route) {
                 CalendarScreen(

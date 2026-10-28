@@ -32,18 +32,15 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.couchto5k.data.repository.DefaultTrainingPlanRepository
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.couchto5k.domain.model.IntervalType
 import com.example.couchto5k.domain.model.TrainingWorkout
 import com.example.couchto5k.domain.model.WorkoutInterval
@@ -55,23 +52,19 @@ import androidx.activity.result.contract.ActivityResultContracts
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WorkoutPreviewScreen(
-    workoutId: Long,
+    @Suppress("UNUSED_PARAMETER") workoutId: Long,
     onStartClick: () -> Unit,
     onBack: () -> Unit,
+    viewModel: WorkoutPreviewViewModel = hiltViewModel(),
 ) {
-    var workout by remember { mutableStateOf<TrainingWorkout?>(null) }
-    val repository = remember { DefaultTrainingPlanRepository() }
+    val workout by viewModel.workout.collectAsState()
 
     val permissionsLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestMultiplePermissions()
+        contract = ActivityResultContracts.RequestMultiplePermissions(),
     ) { _ ->
         // Whether permissions are granted or denied, we start the workout.
         // The service and engine handle graceful degradation (time-based without GPS if denied).
         onStartClick()
-    }
-
-    LaunchedEffect(workoutId) {
-        workout = repository.getWorkoutById(workoutId)
     }
 
     Scaffold(
@@ -85,9 +78,9 @@ fun WorkoutPreviewScreen(
                             contentDescription = "Back",
                         )
                     }
-                }
+                },
             )
-        }
+        },
     ) { innerPadding ->
         val currentWorkout = workout
         if (currentWorkout == null) {
