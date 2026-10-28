@@ -99,9 +99,12 @@ class WorkoutTrackingService : Service() {
                         timestamp = location.time,
                     )
 
-                    val incrementalDistance = locationFilter.processLocation(point)
+                    val (incrementalDistance, acceptedPoint) = locationFilter.processLocation(point)
                     if (incrementalDistance > 0) {
                         workoutEngine.addDistance(incrementalDistance)
+                    }
+                    if (acceptedPoint != null) {
+                        workoutEngine.addRoutePoint(acceptedPoint)
                     }
                 }
             }

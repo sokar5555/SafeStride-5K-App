@@ -10,6 +10,7 @@ import com.example.couchto5k.data.local.entity.CompletedIntervalEntity
 import com.example.couchto5k.data.local.entity.CompletedWorkoutEntity
 import com.example.couchto5k.data.local.entity.CustomWorkoutEntity
 import com.example.couchto5k.data.local.entity.CustomWorkoutIntervalEntity
+import com.example.couchto5k.data.local.entity.LocationPointEntity
 import com.example.couchto5k.data.local.entity.ScheduledWorkoutEntity
 
 @Database(
@@ -19,8 +20,9 @@ import com.example.couchto5k.data.local.entity.ScheduledWorkoutEntity
         ScheduledWorkoutEntity::class,
         CustomWorkoutEntity::class,
         CustomWorkoutIntervalEntity::class,
+        LocationPointEntity::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)

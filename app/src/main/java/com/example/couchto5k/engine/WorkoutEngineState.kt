@@ -1,6 +1,7 @@
 package com.example.couchto5k.engine
 
 import com.example.couchto5k.domain.model.WorkoutInterval
+import com.example.couchto5k.location.LocationPoint
 import java.time.Instant
 
 enum class WorkoutEngineStatus {
@@ -21,4 +22,5 @@ data class ActiveWorkoutState(
     val distanceMeters: Double = 0.0,
     val startedAt: Instant = Instant.MIN,
     val status: WorkoutEngineStatus = WorkoutEngineStatus.NOT_STARTED,
+    val routePoints: List<LocationPoint> = emptyList(),
 )
