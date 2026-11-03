@@ -6,6 +6,7 @@ import androidx.room.Query
 import androidx.room.Transaction
 import com.example.couchto5k.data.local.entity.CompletedIntervalEntity
 import com.example.couchto5k.data.local.entity.CompletedWorkoutEntity
+import com.example.couchto5k.data.local.entity.LocationPointEntity
 import com.example.couchto5k.data.local.entity.WorkoutWithIntervals
 import kotlinx.coroutines.flow.Flow
 
@@ -16,6 +17,12 @@ interface CompletedWorkoutDao {
 
     @Insert
     suspend fun insertCompletedIntervals(intervals: List<CompletedIntervalEntity>)
+
+    @Insert
+    suspend fun insertLocationPoints(points: List<LocationPointEntity>)
+
+    @Query("SELECT * FROM location_points WHERE completedWorkoutId = :workoutId ORDER BY sequence ASC")
+    suspend fun getLocationPointsForWorkout(workoutId: Long): List<LocationPointEntity>
 
     @Transaction
     @Query("SELECT * FROM completed_workouts ORDER BY startedAt DESC")

@@ -4,7 +4,9 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.longPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
+import com.example.couchto5k.domain.model.DistanceUnit
 import com.example.couchto5k.domain.repository.SettingsRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -20,6 +22,7 @@ class DefaultSettingsRepository @Inject constructor(
 
     private val startDateKey = longPreferencesKey("program_start_date")
     private val preferredDaysKey = stringSetPreferencesKey("preferred_workout_days")
+    private val distanceUnitKey = stringPreferencesKey("distance_unit")
 
     override val programStartDate: Flow<LocalDate?> = dataStore.data.map { preferences ->
         preferences[startDateKey]?.let { LocalDate.ofEpochDay(it) }
@@ -40,9 +43,19 @@ class DefaultSettingsRepository @Inject constructor(
         }
     }
 
+    override val distanceUnit: Flow<DistanceUnit> = dataStore.data.map { preferences ->
+        preferences[distanceUnitKey]?.let { DistanceUnit.valueOf(it) } ?: DistanceUnit.MILES
+    }
+
     override suspend fun setPreferredWorkoutDays(days: Set<DayOfWeek>) {
         dataStore.edit { preferences ->
             preferences[preferredDaysKey] = days.asSequence().map { it.name }.toSet()
+        }
+    }
+
+    override suspend fun setDistanceUnit(unit: DistanceUnit) {
+        dataStore.edit { preferences ->
+            preferences[distanceUnitKey] = unit.name
         }
     }
 }

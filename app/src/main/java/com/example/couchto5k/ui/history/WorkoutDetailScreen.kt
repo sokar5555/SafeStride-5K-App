@@ -1,5 +1,7 @@
 package com.example.couchto5k.ui.history
 
+import android.util.Log
+import android.view.View
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -12,13 +14,23 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.couchto5k.domain.model.CompletedInterval
-import com.example.couchto5k.ui.utils.formatDistanceMiles
+import com.example.couchto5k.location.LocationPoint
+import com.example.couchto5k.ui.utils.formatDistance
 import com.example.couchto5k.ui.utils.formatDuration
 import com.example.couchto5k.ui.utils.formatPace
+import com.google.android.gms.maps.CameraUpdateFactory
+import com.google.android.gms.maps.MapView
+import com.google.android.gms.maps.model.BitmapDescriptorFactory
+import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.maps.model.LatLngBounds
+import com.google.android.gms.maps.model.MarkerOptions
+import com.google.android.gms.maps.model.PolylineOptions
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -27,6 +39,8 @@ fun WorkoutDetailScreen(
     onBack: () -> Unit,
 ) {
     val details by viewModel.workoutDetails.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    val distanceUnit by viewModel.distanceUnit.collectAsState()
 
     Scaffold(
         topBar = {
@@ -41,9 +55,17 @@ fun WorkoutDetailScreen(
         },
     ) { padding ->
         val currentDetails = details
-        if (currentDetails == null) {
+        if (isLoading) {
             Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
+            }
+        } else if (currentDetails == null) {
+            Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+                Text(
+                    text = "Workout details not found.",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         } else {
             val (workout, intervals) = currentDetails
@@ -64,12 +86,12 @@ fun WorkoutDetailScreen(
                         MetricCard(
                             modifier = Modifier.weight(1f),
                             label = "Distance",
-                            value = formatDistanceMiles(workout.distanceMeters),
+                            value = formatDistance(workout.distanceMeters, distanceUnit),
                         )
                         MetricCard(
                             modifier = Modifier.weight(1f),
                             label = "Average Pace",
-                            value = formatPace(workout.distanceMeters, workout.durationSeconds),
+                            value = formatPace(workout.distanceMeters, workout.durationSeconds, distanceUnit),
                         )
                     }
                     Spacer(modifier = Modifier.height(8.dp))
@@ -107,17 +129,7 @@ fun WorkoutDetailScreen(
                 }
 
                 item {
-                    // Placeholder for Map
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(200.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                    ) {
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Text("Map Placeholder (Phase 6)", style = MaterialTheme.typography.titleMedium)
-                        }
-                    }
+                    RouteMapCard(currentDetails.routePoints)
                 }
 
                 item {
@@ -128,6 +140,108 @@ fun WorkoutDetailScreen(
                     IntervalDetailItem(interval)
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun RouteMapCard(routePoints: List<LocationPoint>) {
+    if (routePoints.isEmpty()) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(200.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        ) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("No GPS route recorded for this workout", style = MaterialTheme.typography.titleMedium)
+            }
+        }
+        return
+    }
+
+    var mapError by remember { mutableStateOf(value = false) }
+
+    if (mapError) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(200.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        ) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("GPS Route Recorded", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text("${routePoints.size} location points stored", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+    } else {
+        val primaryColorInt = MaterialTheme.colorScheme.primary.toArgb()
+
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(300.dp),
+        ) {
+            AndroidView(
+                modifier = Modifier.fillMaxSize(),
+                factory = { context ->
+                    try {
+                        MapView(context).apply {
+                            onCreate(null)
+                            onResume()
+                            getMapAsync { googleMap ->
+                                try {
+                                    val latLngPoints = routePoints.map { (lat, lng) -> LatLng(lat, lng) }
+                                    if (latLngPoints.isNotEmpty()) {
+                                        googleMap.addPolyline(
+                                            PolylineOptions()
+                                                .addAll(latLngPoints)
+                                                .color(primaryColorInt)
+                                                .width(10f),
+                                        )
+                                        googleMap.addMarker(
+                                            MarkerOptions()
+                                                .position(latLngPoints.first())
+                                                .title("Start")
+                                                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN)),
+                                        )
+                                        val isNotSameEndpoint = (latLngPoints.last().latitude != latLngPoints.first().latitude) || (latLngPoints.last().longitude != latLngPoints.first().longitude)
+                                        if ((latLngPoints.size > 1) && isNotSameEndpoint) {
+                                            googleMap.addMarker(
+                                                MarkerOptions()
+                                                    .position(latLngPoints.last())
+                                                    .title("Finish")
+                                                    .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)),
+                                            )
+                                        }
+
+                                        val isSinglePoint = (latLngPoints.size == 1) || latLngPoints.all {
+                                            (it.latitude == latLngPoints.first().latitude) && (it.longitude == latLngPoints.first().longitude)
+                                        }
+                                        if (isSinglePoint) {
+                                            googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLngPoints.first(), 15f))
+                                        } else {
+                                            val boundsBuilder = LatLngBounds.builder()
+                                            latLngPoints.forEach { boundsBuilder.include(it) }
+                                            val bounds = boundsBuilder.build()
+                                            googleMap.moveCamera(CameraUpdateFactory.newLatLngBounds(bounds, 100))
+                                        }
+                                    }
+                                } catch (e: Exception) {
+                                    Log.e("RouteMapCard", "Map setup error: ${e.message}")
+                                }
+                            }
+                        }
+                    } catch (e: Throwable) {
+                        Log.e("RouteMapCard", "MapView creation failed: ${e.message}")
+                        mapError = true
+                        View(context)
+                    }
+                },
+            )
         }
     }
 }

@@ -9,16 +9,16 @@ class LocationFilter(
 ) {
     private var lastAcceptedPoint: LocationPoint? = null
 
-    fun processLocation(point: LocationPoint): Double {
+    fun processLocation(point: LocationPoint): Pair<Double, LocationPoint?> {
         // 1. Filter out poor accuracy fixes
         if (point.accuracyMeters > minAccuracyMeters) {
-            return 0.0
+            return 0.0 to null
         }
 
         val lastPoint = lastAcceptedPoint
         if (lastPoint == null) {
             lastAcceptedPoint = point
-            return 0.0
+            return 0.0 to point
         }
 
         // 2. Calculate distance between previous and new point
@@ -35,7 +35,7 @@ class LocationFilter(
 
         // 3. Filter out stationary noise
         if (distanceMeters < minDistanceMeters) {
-            return 0.0
+            return 0.0 to null
         }
 
         // 4. Calculate speed to filter out impossible speed jumps (e.g. driving/GPS teleport)
@@ -43,13 +43,13 @@ class LocationFilter(
         if (timeDiffSeconds > 0) {
             val calculatedSpeed = distanceMeters / timeDiffSeconds
             if (calculatedSpeed > maxSpeedMetersPerSecond) {
-                return 0.0
+                return 0.0 to null
             }
         }
 
         // Point is valid
         lastAcceptedPoint = point
-        return distanceMeters
+        return distanceMeters to point
     }
 
     @Suppress("unused")

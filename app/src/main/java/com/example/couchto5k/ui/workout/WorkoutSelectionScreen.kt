@@ -48,8 +48,8 @@ fun WorkoutSelectionScreen(
             TopAppBar(
                 title = { Text("Couch to 5K Program", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
-                    if (onBack != null) {
-                        IconButton(onClick = onBack) {
+                    onBack?.let { backAction ->
+                        IconButton(onClick = backAction) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                                 contentDescription = "Back",

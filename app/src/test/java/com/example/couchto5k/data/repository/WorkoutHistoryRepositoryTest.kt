@@ -9,6 +9,7 @@ import com.example.couchto5k.domain.model.TrainingWorkout
 import com.example.couchto5k.domain.model.WorkoutInterval
 import com.example.couchto5k.engine.ActiveWorkoutState
 import com.example.couchto5k.engine.WorkoutEngineStatus
+import com.example.couchto5k.location.LocationPoint
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.After
@@ -187,5 +188,46 @@ class WorkoutHistoryRepositoryTest {
 
         val historyAfter = repository.getHistory().first()
         assertEquals(0, historyAfter.size)
+    }
+
+    @Test
+    fun saveWorkout_withRoutePoints_persistsAndRetrievesPoints() = runTest {
+        val workout = TrainingWorkout(1L, 1, 1, "Test Route", listOf())
+
+        val routePoints = listOf(
+            LocationPoint(37.4219983, -122.084, null, 5f, 1000L),
+            LocationPoint(37.422, -122.085, 10.0, 10f, 2000L)
+        )
+
+        val state = ActiveWorkoutState(
+            workoutId = 1L,
+            totalElapsedMillis = 10000L,
+            startedAt = Instant.now(),
+            status = WorkoutEngineStatus.COMPLETED,
+            routePoints = routePoints
+        )
+
+        repository.saveCompletedWorkout(workout, state)
+
+        val history = repository.getHistory().first()
+        assertEquals(1, history.size)
+        val savedWorkoutId = history.first().workout.id
+
+        val details = repository.getWorkoutDetails(savedWorkoutId)
+        requireNotNull(details)
+
+        assertEquals(2, details.routePoints.size)
+
+        assertEquals(37.4219983, details.routePoints[0].latitude, 0.0001)
+        assertEquals(-122.084, details.routePoints[0].longitude, 0.0001)
+        assertEquals(null, details.routePoints[0].altitude)
+        assertEquals(5f, details.routePoints[0].accuracyMeters)
+        assertEquals(1000L, details.routePoints[0].timestamp)
+
+        assertEquals(37.422, details.routePoints[1].latitude, 0.0001)
+        assertEquals(-122.085, details.routePoints[1].longitude, 0.0001)
+        assertEquals(10.0, details.routePoints[1].altitude)
+        assertEquals(10f, details.routePoints[1].accuracyMeters)
+        assertEquals(2000L, details.routePoints[1].timestamp)
     }
 }

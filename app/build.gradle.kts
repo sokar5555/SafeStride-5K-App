@@ -71,6 +71,7 @@ dependencies {
 
     implementation(libs.datastore.preferences)
     implementation(libs.play.services.location)
+    implementation(libs.maps.compose)
 
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)

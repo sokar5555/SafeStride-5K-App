@@ -22,8 +22,9 @@ class LocationFilterTest {
     @Test
     fun `first valid point returns zero distance and is accepted`() {
         val p1 = LocationPoint(37.7749, -122.4194, null, 10f, 1000L)
-        val distance = filter.processLocation(p1)
+        val (distance, acceptedPoint) = filter.processLocation(p1)
         assertEquals(0.0, distance, 0.001)
+        assertEquals(p1, acceptedPoint)
     }
 
     @Test
@@ -32,8 +33,9 @@ class LocationFilterTest {
         filter.processLocation(p1)
 
         val p2 = LocationPoint(37.7750, -122.4195, null, 50f, 2000L) // Bad accuracy
-        val distance = filter.processLocation(p2)
+        val (distance, acceptedPoint) = filter.processLocation(p2)
         assertEquals(0.0, distance, 0.001)
+        assertEquals(null, acceptedPoint)
     }
 
     @Test
@@ -43,8 +45,9 @@ class LocationFilterTest {
 
         // Extremely close point
         val p2 = LocationPoint(37.77490001, -122.41940001, null, 10f, 2000L)
-        val distance = filter.processLocation(p2)
+        val (distance, acceptedPoint) = filter.processLocation(p2)
         assertEquals(0.0, distance, 0.001)
+        assertEquals(null, acceptedPoint)
     }
 
     @Test
@@ -54,8 +57,9 @@ class LocationFilterTest {
 
         // 1 km away but only 1 second later (1000 m/s)
         val p2 = LocationPoint(37.7839, -122.4194, null, 10f, 2000L)
-        val distance = filter.processLocation(p2)
+        val (distance, acceptedPoint) = filter.processLocation(p2)
         assertEquals(0.0, distance, 0.001)
+        assertEquals(null, acceptedPoint)
     }
 
     @Test
@@ -65,7 +69,8 @@ class LocationFilterTest {
 
         // Sensible run speed, sensible distance
         val p2 = LocationPoint(37.7750, -122.4194, null, 10f, 5000L)
-        val distance = filter.processLocation(p2)
+        val (distance, acceptedPoint) = filter.processLocation(p2)
         assertTrue("Distance should be greater than 0", distance > 0.0)
+        assertEquals(p2, acceptedPoint)
     }
 }
