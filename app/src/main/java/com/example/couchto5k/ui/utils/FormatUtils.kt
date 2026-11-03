@@ -17,7 +17,7 @@ fun formatDistance(distanceMeters: Double, unit: DistanceUnit = DistanceUnit.MIL
 }
 
 fun formatPace(distanceMeters: Double, durationSeconds: Int, unit: DistanceUnit = DistanceUnit.MILES): String {
-    if (distanceMeters <= 0.001 || durationSeconds <= 0) return "--:--"
+    if ((distanceMeters <= 0.001) || (durationSeconds <= 0)) return "--:--"
     return when (unit) {
         DistanceUnit.MILES -> {
             val miles = distanceMeters / 1609.344

@@ -103,8 +103,8 @@ class WorkoutTrackingService : Service() {
                     if (incrementalDistance > 0) {
                         workoutEngine.addDistance(incrementalDistance)
                     }
-                    if (acceptedPoint != null) {
-                        workoutEngine.addRoutePoint(acceptedPoint)
+                    acceptedPoint?.let {
+                        workoutEngine.addRoutePoint(it)
                     }
                 }
             }

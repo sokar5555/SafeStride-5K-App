@@ -20,6 +20,11 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.SafeStride5K"
         tools:targetApi="31">
+
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="AIzaSyAgbViOuDYZ_h4obbqX8vQGFg_sk0ZCp6Q" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true"

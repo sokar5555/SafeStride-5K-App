@@ -76,7 +76,7 @@ class WorkoutEngine @Inject constructor(
     }
 
     fun pause() {
-        if (_workoutState.value.status != WorkoutEngineStatus.RUNNING || _workoutState.value.isPaused) return
+        if ((_workoutState.value.status != WorkoutEngineStatus.RUNNING) || _workoutState.value.isPaused) return
 
         stopTicker()
         pauseStartRealtimeMillis = SystemClock.elapsedRealtime()
