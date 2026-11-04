@@ -1,17 +1,18 @@
 package com.example.couchto5k.ui.stats
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -23,9 +24,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -35,13 +38,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.compose.runtime.collectAsState
 import com.example.couchto5k.domain.model.DistanceUnit
 import com.example.couchto5k.domain.model.LongestRunRecordPoint
 import com.example.couchto5k.domain.model.ProgramProgress
 import com.example.couchto5k.domain.model.RunningProgression
 import com.example.couchto5k.domain.model.UserStats
 import com.example.couchto5k.domain.model.WeeklyDistancePoint
+import com.example.couchto5k.domain.usecase.TimeOfDayCount
 import com.example.couchto5k.ui.utils.formatDistance
 import com.example.couchto5k.ui.utils.formatDuration
 import com.example.couchto5k.ui.utils.formatPace
@@ -73,6 +76,7 @@ fun StatsScreen(
                         userStats = state.userStats,
                         runningProgression = state.runningProgression,
                         weeklyDistance = state.weeklyDistance,
+                        timeOfDayDistribution = state.timeOfDayDistribution,
                         programProgress = state.programProgress,
                         distanceUnit = state.distanceUnit
                     )
@@ -112,6 +116,7 @@ private fun StatsContent(
     userStats: UserStats,
     runningProgression: RunningProgression,
     weeklyDistance: List<WeeklyDistancePoint>,
+    timeOfDayDistribution: List<TimeOfDayCount>,
     programProgress: ProgramProgress,
     distanceUnit: DistanceUnit,
 ) {
@@ -123,8 +128,10 @@ private fun StatsContent(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         OverallSummarySection(userStats, distanceUnit)
+        RunVsWalkRatioSection(userStats)
         RunningProgressionSection(runningProgression)
         WeeklyDistanceSection(weeklyDistance, distanceUnit)
+        TimeOfDayHeatmapSection(timeOfDayDistribution)
         ProgramProgressSection(programProgress)
     }
 }
@@ -133,7 +140,6 @@ private fun StatsContent(
 private fun OverallSummarySection(userStats: UserStats, distanceUnit: DistanceUnit) {
     Text("Overall Stats", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
 
-    // Instead of using LazyVerticalGrid inside a vertically scrollable Column, we use Rows
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         MetricCard(Modifier.weight(1f), "Workouts", userStats.completedWorkoutsCount.toString())
         MetricCard(Modifier.weight(1f), "Total Distance", formatDistance(userStats.totalDistanceMeters, distanceUnit))
@@ -159,6 +165,117 @@ private fun MetricCard(modifier: Modifier = Modifier, label: String, value: Stri
             Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(modifier = Modifier.height(4.dp))
             Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+        }
+    }
+}
+
+@Composable
+private fun RunVsWalkRatioSection(userStats: UserStats) {
+    Text("Run vs Walk Ratio", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            val totalSeconds = userStats.totalRunningSeconds + userStats.totalWalkingSeconds
+            val runRatio = if (totalSeconds > 0) userStats.totalRunningSeconds.toFloat() / totalSeconds else 0f
+            val runPct = (runRatio * 100).toInt()
+            val walkPct = 100 - runPct
+
+            val runColor = MaterialTheme.colorScheme.primary
+            val walkColor = Color(0xFF00796B) // High contrast deep teal for walking
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("🏃 Running: $runPct%", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = runColor)
+                Text("🚶 Walking: $walkPct%", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = walkColor)
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Segmented Progress Bar
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(14.dp)
+                    .clip(RoundedCornerShape(7.dp))
+                    .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+            ) {
+                val safeRunRatio = runRatio.coerceIn(0f, 1f)
+                val safeWalkRatio = 1f - safeRunRatio
+
+                if (safeRunRatio > 0f) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .weight(safeRunRatio)
+                            .background(runColor)
+                    )
+                }
+                if (safeWalkRatio > 0f) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .weight(safeWalkRatio)
+                            .background(walkColor)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text("Run Time: ${formatDuration(userStats.totalRunningSeconds)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Walk Time: ${formatDuration(userStats.totalWalkingSeconds)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
+}
+
+@Composable
+private fun TimeOfDayHeatmapSection(distribution: List<TimeOfDayCount>) {
+    Text("Time of Day Distribution", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            val maxCount = distribution.maxOfOrNull { it.count }?.coerceAtLeast(1) ?: 1
+
+            distribution.forEach { slotCount ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text("${slotCount.timeOfDay.icon} ${slotCount.timeOfDay.displayName}", modifier = Modifier.width(100.dp), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(10.dp)
+                            .clip(RoundedCornerShape(5.dp))
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .fillMaxWidth(fraction = (slotCount.count.toFloat() / maxCount).coerceIn(0f, 1f))
+                                .background(MaterialTheme.colorScheme.primary)
+                        )
+                    }
+
+                    Text("${slotCount.count}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, modifier = Modifier.width(28.dp), textAlign = TextAlign.End)
+                }
+            }
         }
     }
 }
@@ -199,7 +316,6 @@ private fun RecordProgressionChart(history: List<LongestRunRecordPoint>) {
     val primaryColor = MaterialTheme.colorScheme.primary
     Canvas(modifier = Modifier.fillMaxWidth().height(150.dp)) {
         val maxRecord = history.maxOf { it.longestRunSeconds }.toFloat()
-        val minRecord = 0f // Start from 0 or minOf
 
         val width = size.width
         val height = size.height
@@ -230,7 +346,8 @@ private fun RecordProgressionChart(history: List<LongestRunRecordPoint>) {
 
 @Composable
 private fun WeeklyDistanceSection(weeklyDistance: List<WeeklyDistancePoint>, distanceUnit: DistanceUnit) {
-    Text("Weekly Distance", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+    val unitLabel = if (distanceUnit == DistanceUnit.MILES) "mi" else "km"
+    Text("Weekly Distance ($unitLabel)", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -240,7 +357,6 @@ private fun WeeklyDistanceSection(weeklyDistance: List<WeeklyDistancePoint>, dis
             if (weeklyDistance.isEmpty()) {
                 Text("No data yet.", style = MaterialTheme.typography.bodyMedium)
             } else {
-                // Bar chart placeholder
                 Canvas(modifier = Modifier.fillMaxWidth().height(150.dp)) {
                     val maxDist = weeklyDistance.maxOf { it.distanceMeters }.toFloat()
                     val width = size.width
@@ -256,7 +372,7 @@ private fun WeeklyDistanceSection(weeklyDistance: List<WeeklyDistancePoint>, dis
                         val y = height - barHeight
 
                         drawRect(
-                            color = Color(0xFF1976D2), // Blue primary accent
+                            color = Color(0xFF1976D2),
                             topLeft = Offset(x, y),
                             size = androidx.compose.ui.geometry.Size(barWidth, barHeight)
                         )

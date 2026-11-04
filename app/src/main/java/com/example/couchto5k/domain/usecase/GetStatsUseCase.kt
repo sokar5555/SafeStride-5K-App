@@ -11,9 +11,22 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import java.time.temporal.IsoFields
 import java.time.temporal.TemporalAdjusters
 import javax.inject.Inject
+
+enum class TimeOfDay(val displayName: String, val icon: String) {
+    MORNING("Morning", "🌅"),
+    AFTERNOON("Afternoon", "☀️"),
+    EVENING("Evening", "🌆"),
+    NIGHT("Night", "🌙")
+}
+
+data class TimeOfDayCount(
+    val timeOfDay: TimeOfDay,
+    val count: Int,
+    val percentage: Float,
+)
+
 
 class GetStatsUseCase @Inject constructor(
     private val workoutHistoryRepository: WorkoutHistoryRepository,
@@ -50,9 +63,7 @@ class GetStatsUseCase @Inject constructor(
             )
 
             // 2. Running Progression
-            // Sort history by completedAt to process chronologically
             val sortedHistory = history.sortedBy { it.workout.completedAt ?: it.workout.startedAt }
-
             val startingLongestRunSeconds = sortedHistory.firstOrNull()?.workout?.longestCompletedRunSeconds ?: 60
 
             var currentMax = 0
@@ -64,7 +75,6 @@ class GetStatsUseCase @Inject constructor(
                     currentMax = runSec
                 }
 
-                // We record the current record at this point in time
                 recordHistory.add(
                     LongestRunRecordPoint(
                         workoutId = item.workout.id,
@@ -96,7 +106,6 @@ class GetStatsUseCase @Inject constructor(
             sortedHistory.forEach { item ->
                 val instant = item.workout.completedAt ?: item.workout.startedAt
                 val zdt = instant.atZone(ZoneId.systemDefault())
-                // Group by the start of the week (Monday)
                 val startOfWeek = zdt.with(TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY))
                 val weekLabel = "Week of " + formatter.format(startOfWeek)
 
@@ -107,7 +116,34 @@ class GetStatsUseCase @Inject constructor(
                 WeeklyDistancePoint(label, dist)
             }
 
-            // 4. Program Progress
+            // 4. Time of Day Distribution
+            val timeOfDayCounts = mutableMapOf(
+                TimeOfDay.MORNING to 0,
+                TimeOfDay.AFTERNOON to 0,
+                TimeOfDay.EVENING to 0,
+                TimeOfDay.NIGHT to 0
+            )
+
+            history.forEach { item ->
+                val slot = when (item.workout.startedAt.atZone(ZoneId.systemDefault()).hour) {
+                    in 5..11 -> TimeOfDay.MORNING
+                    in 12..16 -> TimeOfDay.AFTERNOON
+                    in 17..20 -> TimeOfDay.EVENING
+                    else -> TimeOfDay.NIGHT
+                }
+                timeOfDayCounts[slot] = (timeOfDayCounts[slot] ?: 0) + 1
+            }
+
+            val timeOfDayDistribution = TimeOfDay.entries.map { slot ->
+                val count = timeOfDayCounts[slot] ?: 0
+                TimeOfDayCount(
+                    timeOfDay = slot,
+                    count = count,
+                    percentage = count.toFloat() / completedWorkoutsCount
+                )
+            }
+
+            // 5. Program Progress
             val totalProgramWorkoutsCount = allWorkouts.size
             val completionPercentage = if (totalProgramWorkoutsCount > 0) {
                 (completedWorkoutsCount.toFloat() / totalProgramWorkoutsCount).coerceAtMost(1f)
@@ -115,7 +151,6 @@ class GetStatsUseCase @Inject constructor(
                 0f
             }
 
-            // Figure out the current week based on the last completed workout's week, if available, or just a rough calculation
             val lastWorkoutId = sortedHistory.lastOrNull()?.workout?.trainingWorkoutId
             val lastWorkout = allWorkouts.find { it.id == lastWorkoutId }
             val currentWeekNumber = lastWorkout?.week ?: 1
@@ -131,6 +166,7 @@ class GetStatsUseCase @Inject constructor(
                 userStats = userStats,
                 runningProgression = runningProgression,
                 weeklyDistance = weeklyDistance,
+                timeOfDayDistribution = timeOfDayDistribution,
                 programProgress = programProgress
             )
         }
@@ -141,5 +177,6 @@ data class StatsData(
     val userStats: UserStats,
     val runningProgression: RunningProgression,
     val weeklyDistance: List<WeeklyDistancePoint>,
+    val timeOfDayDistribution: List<TimeOfDayCount>,
     val programProgress: ProgramProgress,
 )

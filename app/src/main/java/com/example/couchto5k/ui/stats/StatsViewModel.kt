@@ -9,6 +9,7 @@ import com.example.couchto5k.domain.model.UserStats
 import com.example.couchto5k.domain.model.WeeklyDistancePoint
 import com.example.couchto5k.domain.repository.SettingsRepository
 import com.example.couchto5k.domain.usecase.GetStatsUseCase
+import com.example.couchto5k.domain.usecase.TimeOfDayCount
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -18,11 +19,12 @@ import javax.inject.Inject
 
 sealed interface StatsUiState {
     object Loading : StatsUiState
-    object Empty : StatsUiState // When no workouts completed yet
+    object Empty : StatsUiState
     data class Success(
         val userStats: UserStats,
         val runningProgression: RunningProgression,
         val weeklyDistance: List<WeeklyDistancePoint>,
+        val timeOfDayDistribution: List<TimeOfDayCount>,
         val programProgress: ProgramProgress,
         val distanceUnit: DistanceUnit,
     ) : StatsUiState
@@ -45,6 +47,7 @@ class StatsViewModel @Inject constructor(
                 userStats = statsData.userStats,
                 runningProgression = statsData.runningProgression,
                 weeklyDistance = statsData.weeklyDistance,
+                timeOfDayDistribution = statsData.timeOfDayDistribution,
                 programProgress = statsData.programProgress,
                 distanceUnit = distanceUnit
             )

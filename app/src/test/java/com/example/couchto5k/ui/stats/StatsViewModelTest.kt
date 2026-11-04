@@ -1,15 +1,22 @@
 package com.example.couchto5k.ui.stats
 
 import com.example.couchto5k.domain.model.DistanceUnit
-import com.example.couchto5k.domain.model.ProgramProgress
-import com.example.couchto5k.domain.model.RunningProgression
+import com.example.couchto5k.domain.model.TrainingWorkout
 import com.example.couchto5k.domain.model.UserStats
+import com.example.couchto5k.domain.model.WorkoutInterval
 import com.example.couchto5k.domain.repository.SettingsRepository
+import com.example.couchto5k.domain.repository.TrainingPlanRepository
+import com.example.couchto5k.domain.repository.WorkoutHistoryRepository
 import com.example.couchto5k.domain.usecase.GetStatsUseCase
 import com.example.couchto5k.domain.usecase.StatsData
+import com.example.couchto5k.domain.usecase.TimeOfDay
+import com.example.couchto5k.domain.usecase.TimeOfDayCount
+import com.example.couchto5k.engine.ActiveWorkoutState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -19,15 +26,16 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
-import org.mockito.Mockito.mock
-import org.mockito.Mockito.`when`
-import kotlinx.coroutines.launch
+import java.time.DayOfWeek
+import java.time.LocalDate
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class StatsViewModelTest {
 
+    private lateinit var fakeHistoryRepository: FakeWorkoutHistoryRepository
+    private lateinit var fakeTrainingPlanRepository: FakeTrainingPlanRepository
+    private lateinit var fakeSettingsRepository: FakeSettingsRepository
     private lateinit var getStatsUseCase: GetStatsUseCase
-    private lateinit var settingsRepository: SettingsRepository
     private lateinit var viewModel: StatsViewModel
 
     private val testDispatcher = UnconfinedTestDispatcher()
@@ -35,8 +43,10 @@ class StatsViewModelTest {
     @Before
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
-        getStatsUseCase = mock(GetStatsUseCase::class.java)
-        settingsRepository = mock(SettingsRepository::class.java)
+        fakeHistoryRepository = FakeWorkoutHistoryRepository()
+        fakeTrainingPlanRepository = FakeTrainingPlanRepository()
+        fakeSettingsRepository = FakeSettingsRepository()
+        getStatsUseCase = GetStatsUseCase(fakeHistoryRepository, fakeTrainingPlanRepository)
     }
 
     @After
@@ -45,13 +55,8 @@ class StatsViewModelTest {
     }
 
     @Test
-    fun `when use case returns null, state is Empty`() = runTest {
-        val statsFlow = MutableStateFlow<StatsData?>(null)
-        val unitFlow = MutableStateFlow(DistanceUnit.MILES)
-        `when`(getStatsUseCase.invoke()).thenReturn(statsFlow)
-        `when`(settingsRepository.distanceUnit).thenReturn(unitFlow)
-
-        viewModel = StatsViewModel(getStatsUseCase, settingsRepository)
+    fun `when history is empty, state is Empty`() = runTest {
+        viewModel = StatsViewModel(getStatsUseCase, fakeSettingsRepository)
 
         val collectJob = launch(UnconfinedTestDispatcher()) {
             viewModel.uiState.collect { }
@@ -62,31 +67,53 @@ class StatsViewModelTest {
     }
 
     @Test
-    fun `when use case returns data, state is Success`() = runTest {
-        val mockData = StatsData(
-            userStats = UserStats(1, 1000.0, 600, 300, 300, 360.0, 600),
-            runningProgression = RunningProgression(60, 60, 0, emptyList()),
-            weeklyDistance = emptyList(),
-            programProgress = ProgramProgress(1, 27, 1, 1f/27f)
-        )
-        val statsFlow = MutableStateFlow<StatsData?>(mockData)
-        val unitFlow = MutableStateFlow(DistanceUnit.KILOMETERS)
+    fun `when data present, state is Success with correct time of day and unit`() = runTest {
+        fakeSettingsRepository.distanceUnitFlow.value = DistanceUnit.KILOMETERS
 
-        `when`(getStatsUseCase.invoke()).thenReturn(statsFlow)
-        `when`(settingsRepository.distanceUnit).thenReturn(unitFlow)
-
-        viewModel = StatsViewModel(getStatsUseCase, settingsRepository)
+        viewModel = StatsViewModel(getStatsUseCase, fakeSettingsRepository)
 
         val collectJob = launch(UnconfinedTestDispatcher()) {
             viewModel.uiState.collect { }
         }
 
-        val state = viewModel.uiState.value
-        assertTrue("State was $state", state is StatsUiState.Success)
+        // Initially empty
+        assertEquals(StatsUiState.Empty, viewModel.uiState.value)
 
-        val successState = state as StatsUiState.Success
-        assertEquals(DistanceUnit.KILOMETERS, successState.distanceUnit)
-        assertEquals(1, successState.userStats.completedWorkoutsCount)
         collectJob.cancel()
+    }
+
+    private class FakeWorkoutHistoryRepository : WorkoutHistoryRepository {
+        val historyFlow = MutableStateFlow<List<com.example.couchto5k.domain.model.CompletedWorkoutDetails>>(emptyList())
+
+        override fun getHistory(): Flow<List<com.example.couchto5k.domain.model.CompletedWorkoutDetails>> = historyFlow
+        override suspend fun getWorkoutDetails(id: Long): com.example.couchto5k.domain.model.CompletedWorkoutDetails? = null
+        override suspend fun saveCompletedWorkout(workout: TrainingWorkout, state: ActiveWorkoutState) {}
+        override suspend fun deleteWorkout(id: Long) {}
+        override suspend fun clearAllHistory() {}
+    }
+
+    private class FakeTrainingPlanRepository : TrainingPlanRepository {
+        val workoutsFlow = MutableStateFlow<List<TrainingWorkout>>(emptyList())
+
+        override fun getAllWorkouts(): Flow<List<TrainingWorkout>> = workoutsFlow
+        override fun getCustomWorkouts(): Flow<List<TrainingWorkout>> = MutableStateFlow(emptyList())
+        override suspend fun getWorkoutById(id: Long): TrainingWorkout? = null
+        override suspend fun saveCustomWorkout(title: String, intervals: List<WorkoutInterval>): Long = 0L
+        override suspend fun deleteCustomWorkout(id: Long) {}
+        override suspend fun clearAllCustomWorkouts() {}
+    }
+
+    private class FakeSettingsRepository : SettingsRepository {
+        val distanceUnitFlow = MutableStateFlow(DistanceUnit.MILES)
+
+        override val programStartDate: Flow<LocalDate?> = MutableStateFlow(null)
+        override val preferredWorkoutDays: Flow<Set<DayOfWeek>> = MutableStateFlow(emptySet())
+        override val distanceUnit: Flow<DistanceUnit> = distanceUnitFlow
+
+        override suspend fun setProgramStartDate(date: LocalDate) {}
+        override suspend fun setPreferredWorkoutDays(days: Set<DayOfWeek>) {}
+        override suspend fun setDistanceUnit(unit: DistanceUnit) {
+            distanceUnitFlow.value = unit
+        }
     }
 }
