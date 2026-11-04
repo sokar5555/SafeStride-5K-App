@@ -1,0 +1,16 @@
+Implement Stats Screen and GetStatsUseCase
+
+This commit addresses the requirements for Phase 7 (Stats & Running Progression)
+by introducing a full-featured statistics dashboard and tracking cumulative
+workout metrics.
+
+1. Added `UserStats`, `RunningProgression`, `WeeklyDistancePoint`, and `ProgramProgress` data classes to represent the domain models.
+2. Created `GetStatsUseCase` to perform calculations for overall stats, continuous running history progression, weekly distance aggregations, and program progress based on `WorkoutHistoryRepository` and `TrainingPlanRepository`.
+3. Added `StatsViewModel` to manage state transitions using a `StatsUiState` sealed interface.
+4. Overhauled `StatsScreen.kt` to present a scrollable dashboard featuring four sections: Overall Summary, Running Progression with a canvas chart, Weekly Distance with a bar chart, and a Program Progress indicator, along with an Empty State.
+5. Unit tests were added with robust assertions testing state emissions and complex computations.
+
+Fixed specific issues identified during review:
+- Used `10.sp` instead of the internal `TextUnit` constructor in `StatsScreen.kt`
+- Allowed the compilation and UI tests to pass cleanly
+- Updated `libs.versions.toml` and `build.gradle.kts` to correctly specify mockito and mockito-kotlin dependencies for tests.
