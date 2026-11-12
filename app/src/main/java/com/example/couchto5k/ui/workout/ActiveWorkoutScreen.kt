@@ -5,15 +5,20 @@ import android.content.pm.PackageManager
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -21,11 +26,15 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.FastForward
 import androidx.compose.material.icons.filled.FastRewind
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -35,6 +44,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -58,9 +68,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.couchto5k.domain.model.DistanceUnit
 import com.example.couchto5k.domain.model.IntervalType
 import com.example.couchto5k.engine.WorkoutEngineStatus
+import com.example.couchto5k.ui.components.LocationStatusBanner
 import com.example.couchto5k.ui.utils.formatDistance
+import com.example.couchto5k.ui.utils.formatDuration
 import com.example.couchto5k.ui.utils.formatPace
 import java.util.Locale
 
@@ -68,13 +81,16 @@ import java.util.Locale
 @Composable
 fun ActiveWorkoutScreen(
     onExit: () -> Unit,
+    onViewWorkoutDetails: (Long) -> Unit = {},
     viewModel: ActiveWorkoutViewModel = hiltViewModel(),
 ) {
     val state by viewModel.workoutState.collectAsState()
     val currentWorkout by viewModel.currentWorkout.collectAsState()
+    val completionSummary by viewModel.completionSummary.collectAsState()
+    val distanceUnit by viewModel.distanceUnit.collectAsState()
     val context = LocalContext.current
 
-    var showExitDialog by remember { mutableStateOf(value = false) }
+    var showCancelDialog by remember { mutableStateOf(value = false) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
@@ -86,55 +102,86 @@ fun ActiveWorkoutScreen(
         }
     }
 
+    val isMatchingWorkout = (currentWorkout != null) && (state.workoutId == currentWorkout?.id)
+    val isCancelled = isMatchingWorkout && (state.status == WorkoutEngineStatus.CANCELLED)
+    val isCompleted = isMatchingWorkout && (state.status == WorkoutEngineStatus.COMPLETED)
+
     BackHandler {
         if ((state.status == WorkoutEngineStatus.RUNNING) || (state.status == WorkoutEngineStatus.PAUSED)) {
-            showExitDialog = true
+            showCancelDialog = true
         } else {
             onExit()
         }
     }
 
-    val isMatchingWorkout = (currentWorkout != null) && (state.workoutId == currentWorkout?.id)
-    val isFinished = isMatchingWorkout && ((state.status == WorkoutEngineStatus.COMPLETED) || (state.status == WorkoutEngineStatus.CANCELLED))
-
-    if (isFinished) {
+    if (isCancelled) {
         LaunchedEffect(state.status, currentWorkout?.id) {
             onExit()
         }
     }
 
-    if (showExitDialog) {
-        val isCooldown = state.currentInterval?.type == IntervalType.COOLDOWN
+    // C. Cancel Confirmation Dialog
+    if (showCancelDialog) {
         AlertDialog(
-            onDismissRequest = { showExitDialog = false },
-            title = { Text(if (isCooldown) "Finish Workout?" else "Stop Workout?") },
+            onDismissRequest = { showCancelDialog = false },
+            title = { Text("Cancel Workout?") },
             text = {
                 Text(
-                    if (isCooldown)
-                        "You are in the cooldown period. Finishing now will save your completed workout."
-                    else
-                        "Are you sure you want to stop the workout? Progress will be lost.",
+                    "Are you sure you want to stop this workout? Progress recorded so far will be saved to your history.",
                 )
             },
             confirmButton = {
-                TextButton(
+                Button(
                     onClick = {
-                        showExitDialog = false
+                        showCancelDialog = false
                         viewModel.stop()
                         onExit()
                     },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError,
+                    ),
+                    modifier = Modifier.heightIn(min = 48.dp),
                 ) {
-                    Text(
-                        if (isCooldown) "Finish" else "Stop",
-                        color = if (isCooldown) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
-                    )
+                    Text("Stop Workout", fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showExitDialog = false }) {
-                    Text("Cancel")
+                TextButton(
+                    onClick = { showCancelDialog = false },
+                    modifier = Modifier.heightIn(min = 48.dp),
+                ) {
+                    Text("Resume Workout", fontWeight = FontWeight.SemiBold)
                 }
             },
+        )
+    }
+
+    // D. Completion Celebration & Personal Record Unlock
+    if (isCompleted) {
+        val summary = completionSummary ?: WorkoutCompletionSummary(
+            completedWorkoutId = null,
+            workoutTitle = currentWorkout?.title ?: "Workout",
+            distanceMeters = state.distanceMeters,
+            durationSeconds = maxOf(
+                (state.totalElapsedMillis / 1000).toInt(),
+                currentWorkout?.totalPlannedDurationSeconds ?: 0,
+            ),
+            longestRunSeconds = currentWorkout?.longestPlannedRunIntervalSeconds ?: 0,
+            isNewPersonalRecord = false,
+        )
+        WorkoutCompletionCelebrationDialog(
+            summary = summary,
+            distanceUnit = distanceUnit,
+            onViewDetails = {
+                val id = summary.completedWorkoutId
+                if (id != null) {
+                    onViewWorkoutDetails(id)
+                } else {
+                    onExit()
+                }
+            },
+            onBackToHome = onExit,
         )
     }
 
@@ -143,20 +190,52 @@ fun ActiveWorkoutScreen(
             TopAppBar(
                 title = { Text(currentWorkout?.title ?: "Workout") },
                 navigationIcon = {
-                    IconButton(onClick = { showExitDialog = true }) {
-                        Icon(Icons.Default.Close, contentDescription = "Close Workout")
+                    IconButton(
+                        onClick = {
+                            if ((state.status == WorkoutEngineStatus.RUNNING) || (state.status == WorkoutEngineStatus.PAUSED)) {
+                                showCancelDialog = true
+                            } else {
+                                onExit()
+                            }
+                        },
+                        modifier = Modifier.defaultMinSize(minWidth = 48.dp, minHeight = 48.dp),
+                    ) {
+                        Icon(Icons.Default.Close, contentDescription = "Cancel Workout")
+                    }
+                },
+                actions = {
+                    if ((state.status == WorkoutEngineStatus.RUNNING) || (state.status == WorkoutEngineStatus.PAUSED)) {
+                        TextButton(
+                            onClick = { showCancelDialog = true },
+                            modifier = Modifier.heightIn(min = 48.dp),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Stop,
+                                contentDescription = "Stop Workout",
+                                tint = MaterialTheme.colorScheme.error,
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "STOP",
+                                color = MaterialTheme.colorScheme.error,
+                                fontWeight = FontWeight.Bold,
+                            )
+                        }
                     }
                 },
             )
-        }
+        },
     ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(horizontal = 24.dp, vertical = 16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .padding(horizontal = 24.dp, vertical = 12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
+            // E. Permission-Denied & GPS-Disabled Banner
+            LocationStatusBanner()
+
             val interval = state.currentInterval
 
             if (interval != null) {
@@ -175,36 +254,46 @@ fun ActiveWorkoutScreen(
                             text = "Interval $currentStep of $totalSteps",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = MaterialTheme.colorScheme.onSurface,
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
                         )
                     }
                 }
 
-                // 2. Prominent Interval Type Indicator (e.g., "WARMUP")
-                Surface(
-                    color = typeColors.first,
-                    shape = RoundedCornerShape(20.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 12.dp)
-                ) {
-                    Text(
-                        text = interval.type.name,
-                        color = typeColors.second,
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.ExtraBold,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(vertical = 10.dp)
-                    )
+                // 2. Prominent Interval Type Indicator (with smooth Crossfade)
+                Crossfade(
+                    targetState = interval.type,
+                    label = "IntervalTypeCrossfade",
+                ) { intervalType ->
+                    val bannerColors = getIntervalColors(intervalType)
+                    Surface(
+                        color = bannerColors.first,
+                        shape = RoundedCornerShape(20.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 12.dp)
+                    ) {
+                        Text(
+                            text = intervalType.name,
+                            color = bannerColors.second,
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.ExtraBold,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(vertical = 10.dp)
+                        )
+                    }
                 }
 
                 // 3. Large Numeric Interval Countdown Timer (e.g., "4:57")
                 val remainingSeconds = (state.intervalRemainingMillis / 1000).toInt()
                 val totalSeconds = interval.durationSeconds
-                val progress = if (totalSeconds > 0) {
+                val rawProgress = if (totalSeconds > 0) {
                     (1f - (state.intervalRemainingMillis.toFloat() / (totalSeconds * 1000f))).coerceIn(0f, 1f)
                 } else 0f
+                val animatedIntervalProgress by animateFloatAsState(
+                    targetValue = rawProgress,
+                    label = "IntervalProgressAnimation",
+                )
 
                 Text(
                     text = formatTime(remainingSeconds),
@@ -216,7 +305,7 @@ fun ActiveWorkoutScreen(
 
                 // 4. Interval Progress Bar
                 LinearProgressIndicator(
-                    progress = { progress },
+                    progress = { animatedIntervalProgress },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(10.dp)
@@ -244,7 +333,8 @@ fun ActiveWorkoutScreen(
                                 Text(
                                     "NEXT UP:",
                                     style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.Bold
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface,
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Surface(
@@ -265,7 +355,7 @@ fun ActiveWorkoutScreen(
                         Text(
                             "FINAL INTERVAL",
                             style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = MaterialTheme.colorScheme.onSurface,
                             fontWeight = FontWeight.Bold
                         )
                     }
@@ -273,7 +363,7 @@ fun ActiveWorkoutScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // 6. Live GPS Metrics Card (DISTANCE & AVG PACE) - placed directly in the middle area!
+                // 6. Live GPS Metrics Card (DISTANCE & AVG PACE)
                 val elapsedSeconds = (state.totalElapsedMillis / 1000).toInt()
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -288,7 +378,7 @@ fun ActiveWorkoutScreen(
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(
-                                text = formatDistance(state.distanceMeters),
+                                text = formatDistance(state.distanceMeters, distanceUnit),
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.ExtraBold,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer
@@ -310,7 +400,7 @@ fun ActiveWorkoutScreen(
 
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(
-                                text = formatPace(state.distanceMeters, elapsedSeconds),
+                                text = formatPace(state.distanceMeters, elapsedSeconds, distanceUnit),
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.ExtraBold,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer
@@ -331,9 +421,13 @@ fun ActiveWorkoutScreen(
                 currentWorkout?.let { workout ->
                     val totalPlanned = workout.totalPlannedDurationSeconds
                     val elapsed = (state.totalElapsedMillis / 1000).toInt()
-                    val overallProgress = if (totalPlanned > 0) {
+                    val rawOverallProgress = if (totalPlanned > 0) {
                         (elapsed.toFloat() / totalPlanned.toFloat()).coerceIn(0f, 1f)
                     } else 0f
+                    val overallProgress by animateFloatAsState(
+                        targetValue = rawOverallProgress,
+                        label = "OverallWorkoutProgress",
+                    )
 
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
@@ -347,7 +441,7 @@ fun ActiveWorkoutScreen(
                                 text = "Total Time: ${formatTime(elapsed)}",
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
                                 text = "${(overallProgress * 100).toInt()}% Complete",
@@ -381,7 +475,11 @@ fun ActiveWorkoutScreen(
                         onClick = { viewModel.skipPrevious() },
                         modifier = Modifier.size(56.dp)
                     ) {
-                        Icon(Icons.Default.FastRewind, contentDescription = "Previous Interval", modifier = Modifier.size(32.dp))
+                        Icon(
+                            Icons.Default.FastRewind,
+                            contentDescription = "Previous Interval",
+                            modifier = Modifier.size(32.dp)
+                        )
                     }
 
                     FloatingActionButton(
@@ -394,7 +492,7 @@ fun ActiveWorkoutScreen(
                     ) {
                         Icon(
                             imageVector = if (state.isPaused) Icons.Default.PlayArrow else Icons.Default.Pause,
-                            contentDescription = if (state.isPaused) "Resume" else "Pause",
+                            contentDescription = if (state.isPaused) "Resume Workout" else "Pause Workout",
                             modifier = Modifier.size(40.dp),
                             tint = MaterialTheme.colorScheme.onPrimary
                         )
@@ -404,7 +502,11 @@ fun ActiveWorkoutScreen(
                         onClick = { viewModel.skipNext() },
                         modifier = Modifier.size(56.dp)
                     ) {
-                        Icon(Icons.Default.FastForward, contentDescription = "Next Interval", modifier = Modifier.size(32.dp))
+                        Icon(
+                            Icons.Default.FastForward,
+                            contentDescription = "Next Interval",
+                            modifier = Modifier.size(32.dp)
+                        )
                     }
                 }
             } else {
@@ -413,6 +515,179 @@ fun ActiveWorkoutScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun WorkoutCompletionCelebrationDialog(
+    summary: WorkoutCompletionSummary,
+    distanceUnit: DistanceUnit,
+    onViewDetails: () -> Unit,
+    onBackToHome: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onBackToHome,
+        title = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(
+                    text = "Workout Complete! 🎉",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = MaterialTheme.colorScheme.primary,
+                    textAlign = TextAlign.Center,
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = summary.workoutTitle,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                )
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                AnimatedVisibility(visible = summary.isNewPersonalRecord) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = Color(0xFFFFF8E1),
+                        ),
+                        shape = RoundedCornerShape(14.dp),
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center,
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.EmojiEvents,
+                                contentDescription = "Personal record trophy",
+                                tint = Color(0xFFF57F17),
+                                modifier = Modifier.size(28.dp),
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column {
+                                Text(
+                                    text = "New Personal Record! 🏆",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = Color(0xFFE65100),
+                                )
+                                Text(
+                                    text = "Longest Continuous Run: ${formatDuration(summary.longestRunSeconds)}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF5D4037),
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    ),
+                    shape = RoundedCornerShape(14.dp),
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            CelebrationMetricItem(
+                                label = "Distance",
+                                value = formatDistance(summary.distanceMeters, distanceUnit),
+                                modifier = Modifier.weight(1f),
+                            )
+                            CelebrationMetricItem(
+                                label = "Duration",
+                                value = formatDuration(summary.durationSeconds),
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            CelebrationMetricItem(
+                                label = "Avg Pace",
+                                value = formatPace(summary.distanceMeters, summary.durationSeconds, distanceUnit),
+                                modifier = Modifier.weight(1f),
+                            )
+                            CelebrationMetricItem(
+                                label = "Longest Run",
+                                value = formatDuration(summary.longestRunSeconds),
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onViewDetails,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 48.dp),
+                shape = RoundedCornerShape(10.dp),
+            ) {
+                Text("View Workout Details", fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            OutlinedButton(
+                onClick = onBackToHome,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 48.dp),
+                shape = RoundedCornerShape(10.dp),
+            ) {
+                Text("Back to Home", fontWeight = FontWeight.SemiBold)
+            }
+        },
+    )
+}
+
+@Composable
+private fun CelebrationMetricItem(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontWeight = FontWeight.SemiBold,
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.primary,
+            fontWeight = FontWeight.ExtraBold,
+        )
     }
 }
 

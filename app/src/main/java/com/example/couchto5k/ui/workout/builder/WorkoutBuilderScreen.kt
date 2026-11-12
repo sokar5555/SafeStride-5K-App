@@ -724,7 +724,7 @@ private fun DurationPickerDialog(
                             ) { Text("-", fontSize = 18.sp, fontWeight = FontWeight.Bold) }
 
                             Text(
-                                text = "$minutes",
+                                text = minutes.toString(),
                                 modifier = Modifier.padding(horizontal = 16.dp),
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold,

@@ -15,6 +15,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.couchto5k.domain.model.CompletedWorkoutDetails
+import com.example.couchto5k.domain.model.DistanceUnit
 import com.example.couchto5k.engine.WorkoutEngineStatus
 import com.example.couchto5k.ui.utils.formatDistance
 import com.example.couchto5k.ui.utils.formatDuration
@@ -32,6 +33,7 @@ fun HistoryScreen(
     bottomBar: @Composable () -> Unit = {},
 ) {
     val history by viewModel.history.collectAsState()
+    val distanceUnit by viewModel.distanceUnit.collectAsState()
     var workoutToDelete by remember { mutableStateOf<Long?>(null) }
     var showClearAllDialog by remember { mutableStateOf(value = false) }
 
@@ -57,14 +59,36 @@ fun HistoryScreen(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(padding),
+                    .padding(padding)
+                    .padding(24.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                Text(
-                    text = "No completed workouts yet.",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.large,
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    ),
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text(
+                            text = "No Completed Workouts Yet",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        Text(
+                            text = "Workouts you complete will be automatically recorded here with distance, pace, interval stats, and route maps.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
             }
         } else {
             LazyColumn(
@@ -78,8 +102,9 @@ fun HistoryScreen(
                 items(history, key = { (workout) -> workout.id }) { item ->
                     WorkoutHistoryCard(
                         details = item,
+                        distanceUnit = distanceUnit,
                         onClick = { onWorkoutClick(item.workout.id) },
-                        onDeleteClick = { workoutToDelete = item.workout.id },
+                        onDeleteClick = { workoutToDelete = item.workout.id }
                     )
                 }
             }
@@ -136,6 +161,7 @@ fun HistoryScreen(
 @Composable
 fun WorkoutHistoryCard(
     details: CompletedWorkoutDetails,
+    distanceUnit: DistanceUnit = DistanceUnit.MILES,
     onClick: () -> Unit,
     onDeleteClick: () -> Unit,
 ) {
@@ -190,13 +216,13 @@ fun WorkoutHistoryCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 Text(
-                    text = "Distance: ${formatDistance(workout.distanceMeters)}",
+                    text = "Distance: ${formatDistance(workout.distanceMeters, distanceUnit)}",
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary,
                 )
                 Text(
-                    text = "Pace: ${formatPace(workout.distanceMeters, workout.durationSeconds)}",
+                    text = "Pace: ${formatPace(workout.distanceMeters, workout.durationSeconds, distanceUnit)}",
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,

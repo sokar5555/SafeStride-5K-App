@@ -90,7 +90,7 @@ fun CalendarScreen(
                 .padding(horizontal = 16.dp)
                 .squishyOverscroll(),
             contentPadding = PaddingValues(vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             // 1. Settings Summary Card
             item {
@@ -99,23 +99,23 @@ fun CalendarScreen(
                         .fillMaxWidth()
                         .clickable { showSettingsDialog = true },
                     colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant
-                    )
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    ),
                 ) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 12.dp)
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
                     ) {
                         Text(
                             text = "Start: ${startDate?.format(DateTimeFormatter.ofPattern("MMM d, yyyy")) ?: "Not set"}",
                             style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
                         )
                         Text(
                             text = "Days: ${preferredDays.joinToString { it.name.take(3).lowercase().replaceFirstChar { c -> c.uppercase() } }}",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }
@@ -130,7 +130,7 @@ fun CalendarScreen(
                     onMonthChange = { displayedMonth = it },
                     onDateSelected = { date ->
                         selectedDate = if (selectedDate == date) null else date
-                    }
+                    },
                 )
             }
 
@@ -467,28 +467,37 @@ fun ScheduleSettingsDialog(
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 allDays.forEach { day ->
+                    val isSelected = selectedDays.contains(day)
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable {
-                                selectedDays = if (selectedDays.contains(day)) {
-                                    selectedDays - day
+                                selectedDays = if (isSelected) {
+                                    if (selectedDays.size > 1) selectedDays - day else selectedDays
                                 } else {
-                                    selectedDays + day
+                                    if (selectedDays.size < 3) {
+                                        selectedDays + day
+                                    } else {
+                                        selectedDays.asSequence().drop(1).toSet() + day
+                                    }
                                 }
                             }
                             .padding(vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Checkbox(
-                            checked = selectedDays.contains(day),
+                            checked = isSelected,
                             onCheckedChange = { isChecked ->
-                                selectedDays = if (isChecked) {
-                                    selectedDays + day
+                                selectedDays = if (!isChecked) {
+                                    if (selectedDays.size > 1) selectedDays - day else selectedDays
                                 } else {
-                                    selectedDays - day
+                                    if (selectedDays.size < 3) {
+                                        selectedDays + day
+                                    } else {
+                                        selectedDays.asSequence().drop(1).toSet() + day
+                                    }
                                 }
-                            }
+                            },
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(day.name.lowercase().replaceFirstChar { it.uppercase() })

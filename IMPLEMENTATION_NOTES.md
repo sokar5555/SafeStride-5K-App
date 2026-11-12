@@ -7,3 +7,10 @@
 - `HomeScreen` displays a "Build Custom Workout" feature card, quick access to C25K 9-week program, and a list of Saved Custom Workouts at the bottom.
 - `WorkoutBuilderScreen` pre-populates Warmup (5 min) and Cooldown (5 min), allows adding custom Run and Walk intervals for any duration via duration picker dialog, and includes "FINISH BUILDING WORKOUT" and "SET WORKOUT NOW" action buttons.
 - GPS and Workout foreground service active tracking implemented in subsequent active workout service phase.
+- Phase 8 UX Polish implemented:
+  - Extended `SettingsRepository` and `DefaultSettingsRepository` with DataStore persistence for `voiceCuesEnabled`, `soundCuesEnabled`, `vibrationEnabled`, and `onboardingComplete`, and connected `DefaultAudioHapticManager` to respect audio/haptic preferences dynamically.
+  - Added `SettingsScreen` and `SettingsViewModel` (`ui/settings/`) supporting Miles/Kilometers unit toggling, Voice/Sound/Vibration toggles, Preferred Workout Days (3 days/week) and Program Start Date picker, and Reset Program / Clear Data confirmation dialog.
+  - Added 3-step `OnboardingScreen` and `OnboardingViewModel` (`ui/onboarding/`) shown on first launch when `onboardingComplete` is false, with smooth `Crossfade` step transitions and animated progress indicator.
+  - Added `LocationStatusBanner` (`ui/components/`) on `WorkoutPreviewScreen` and `ActiveWorkoutScreen` using `AnimatedVisibility` to handle permission-denied and GPS-disabled states gracefully.
+  - Updated `ActiveWorkoutScreen` and `ActiveWorkoutViewModel` with a Cancel Workout Confirmation Dialog, Post-Workout Completion Celebration Dialog with New Continuous Longest-Run Personal Record badge (`"New Personal Record! 🏆"`), and accessibility / animation polish.
+  - Added `asm` 9.8 in `gradle/libs.versions.toml` for Robolectric compatibility with JDK 25 bytecode.

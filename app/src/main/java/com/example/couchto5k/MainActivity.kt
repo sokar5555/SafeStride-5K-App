@@ -3,6 +3,7 @@ package com.example.couchto5k
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import com.example.couchto5k.ui.navigation.AppNavGraph
 import com.example.couchto5k.ui.theme.SafeStride5KTheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -11,6 +12,7 @@ import dagger.hilt.android.AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
         setContent {
             SafeStride5KTheme {
                 AppNavGraph()

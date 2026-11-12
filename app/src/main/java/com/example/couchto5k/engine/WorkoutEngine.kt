@@ -90,7 +90,7 @@ class WorkoutEngine @Inject constructor(
     }
 
     fun resume() {
-        if (_workoutState.value.status != WorkoutEngineStatus.PAUSED || !_workoutState.value.isPaused) return
+        if ((_workoutState.value.status != WorkoutEngineStatus.PAUSED) || !_workoutState.value.isPaused) return
 
         val now = SystemClock.elapsedRealtime()
         accumulatedPauseMillisInCurrentInterval += (now - pauseStartRealtimeMillis)

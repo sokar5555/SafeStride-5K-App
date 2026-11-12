@@ -5,9 +5,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -20,6 +22,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -48,6 +51,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.couchto5k.domain.model.TrainingWorkout
+import com.example.couchto5k.ui.utils.formatDuration
 import com.example.couchto5k.ui.utils.squishyOverscroll
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -57,6 +61,7 @@ fun HomeScreen(
     onSelectProgramClick: () -> Unit,
     onWorkoutPreviewClick: (Long) -> Unit,
     onStartWorkoutClick: (Long) -> Unit,
+    onSettingsClick: () -> Unit = {},
     bottomBar: @Composable () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
@@ -73,6 +78,18 @@ fun HomeScreen(
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,
                     )
+                },
+                actions = {
+                    IconButton(
+                        onClick = onSettingsClick,
+                        modifier = Modifier.defaultMinSize(minWidth = 48.dp, minHeight = 48.dp),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = "Settings",
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                    }
                 },
             )
         },
@@ -166,7 +183,9 @@ fun HomeScreen(
 
                         OutlinedButton(
                             onClick = onSelectProgramClick,
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 48.dp),
                             shape = RoundedCornerShape(10.dp),
                         ) {
                             Text("BROWSE C25K WORKOUTS", fontWeight = FontWeight.Bold)
@@ -247,7 +266,7 @@ fun HomeScreen(
                         workout = workout,
                         onStartClick = { onStartWorkoutClick(workout.id) },
                         onPreviewClick = { onWorkoutPreviewClick(workout.id) },
-                        onDeleteClick = { workoutToDelete = workout },
+                        onDeleteClick = { workoutToDelete = workout }
                     )
                 }
             }
@@ -343,9 +362,8 @@ private fun SavedWorkoutCard(
 
             Spacer(modifier = Modifier.height(4.dp))
 
-            val durationMinutes = workout.totalPlannedDurationSeconds / 60
             Text(
-                text = "$durationMinutes min total • ${workout.numberOfRunIntervals} runs, ${workout.numberOfWalkIntervals} walks",
+                text = "${formatDuration(workout.totalPlannedDurationSeconds)} total • ${workout.numberOfRunIntervals} runs, ${workout.numberOfWalkIntervals} walks",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -358,13 +376,15 @@ private fun SavedWorkoutCard(
             ) {
                 Button(
                     onClick = onStartClick,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier
+                        .weight(1f)
+                        .heightIn(min = 48.dp),
                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
                     shape = RoundedCornerShape(8.dp),
                 ) {
                     Icon(
                         imageVector = Icons.Default.PlayArrow,
-                        contentDescription = null,
+                        contentDescription = "Start workout",
                         modifier = Modifier.size(18.dp),
                     )
                     Spacer(modifier = Modifier.width(4.dp))
@@ -372,20 +392,20 @@ private fun SavedWorkoutCard(
                         text = "START NOW",
                         fontWeight = FontWeight.Bold,
                         fontSize = 13.sp,
-                        maxLines = 1,
-                        softWrap = false,
                     )
                 }
 
                 OutlinedButton(
                     onClick = onPreviewClick,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier
+                        .weight(1f)
+                        .heightIn(min = 48.dp),
                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
                     shape = RoundedCornerShape(8.dp),
                 ) {
                     Icon(
                         imageVector = Icons.Default.Visibility,
-                        contentDescription = null,
+                        contentDescription = "Preview workout",
                         modifier = Modifier.size(18.dp),
                     )
                     Spacer(modifier = Modifier.width(4.dp))
@@ -393,8 +413,6 @@ private fun SavedWorkoutCard(
                         text = "PREVIEW",
                         fontWeight = FontWeight.Bold,
                         fontSize = 13.sp,
-                        maxLines = 1,
-                        softWrap = false,
                     )
                 }
             }

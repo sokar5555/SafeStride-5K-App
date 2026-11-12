@@ -52,7 +52,7 @@ import com.example.couchto5k.ui.utils.formatPace
 @Composable
 fun StatsScreen(
     bottomBar: @Composable () -> Unit = {},
-    viewModel: StatsViewModel = hiltViewModel()
+    viewModel: StatsViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
@@ -78,7 +78,7 @@ fun StatsScreen(
                         weeklyDistance = state.weeklyDistance,
                         timeOfDayDistribution = state.timeOfDayDistribution,
                         programProgress = state.programProgress,
-                        distanceUnit = state.distanceUnit
+                        distanceUnit = state.distanceUnit,
                     )
                 }
             }
@@ -273,7 +273,13 @@ private fun TimeOfDayHeatmapSection(distribution: List<TimeOfDayCount>) {
                         )
                     }
 
-                    Text("${slotCount.count}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, modifier = Modifier.width(28.dp), textAlign = TextAlign.End)
+                    Text(
+                        text = slotCount.count.toString(),
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.width(28.dp),
+                        textAlign = TextAlign.End,
+                    )
                 }
             }
         }

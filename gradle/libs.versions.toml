@@ -17,10 +17,16 @@ hiltNavigationCompose = "1.2.0"
 mapsCompose = "4.3.3"
 playServicesLocation = "21.2.0"
 robolectric = "4.14.1"
+asm = "9.8"
 coroutinesTest = "1.8.0"
 
 [libraries]
 robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
+asm = { group = "org.ow2.asm", name = "asm", version.ref = "asm" }
+asm-commons = { group = "org.ow2.asm", name = "asm-commons", version.ref = "asm" }
+asm-tree = { group = "org.ow2.asm", name = "asm-tree", version.ref = "asm" }
+asm-util = { group = "org.ow2.asm", name = "asm-util", version.ref = "asm" }
+asm-analysis = { group = "org.ow2.asm", name = "asm-analysis", version.ref = "asm" }
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutinesTest" }
 
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }

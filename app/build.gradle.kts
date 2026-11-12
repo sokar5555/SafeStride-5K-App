@@ -21,6 +21,8 @@ android {
         vectorDrawables {
             useSupportLibrary = true
         }
+
+        manifestPlaceholders["MAPS_API_KEY"] = project.findProperty("MAPS_API_KEY") as? String ?: "AIzaSyAgbViOuDYZ_h4obbqX8vQGFg_sk0ZCp6Q"
     }
 
     buildTypes {
@@ -75,6 +77,11 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)
+    testImplementation(libs.asm)
+    testImplementation(libs.asm.commons)
+    testImplementation(libs.asm.tree)
+    testImplementation(libs.asm.util)
+    testImplementation(libs.asm.analysis)
     testImplementation(libs.kotlinx.coroutines.test)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

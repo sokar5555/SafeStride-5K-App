@@ -11,10 +11,17 @@ import android.os.Vibrator
 import android.os.VibratorManager
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
+import com.example.couchto5k.domain.repository.SettingsRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -31,7 +38,19 @@ interface AudioHapticManager {
 @Singleton
 class DefaultAudioHapticManager @Inject constructor(
     @param:ApplicationContext private val context: Context,
+    private val settingsRepository: SettingsRepository,
 ) : AudioHapticManager, TextToSpeech.OnInitListener {
+
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    @Volatile
+    private var voiceCuesEnabled: Boolean = true
+
+    @Volatile
+    private var soundCuesEnabled: Boolean = true
+
+    @Volatile
+    private var vibrationEnabled: Boolean = true
 
     private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
 
@@ -54,6 +73,16 @@ class DefaultAudioHapticManager @Inject constructor(
     private var audioFocusRequest: AudioFocusRequest? = null
 
     init {
+        scope.launch {
+            settingsRepository.voiceCuesEnabled.collectLatest { voiceCuesEnabled = it }
+        }
+        scope.launch {
+            settingsRepository.soundCuesEnabled.collectLatest { soundCuesEnabled = it }
+        }
+        scope.launch {
+            settingsRepository.vibrationEnabled.collectLatest { vibrationEnabled = it }
+        }
+
         try {
             toneGenerator = ToneGenerator(AudioManager.STREAM_MUSIC, 80)
         } catch (_: Exception) {
@@ -68,6 +97,7 @@ class DefaultAudioHapticManager @Inject constructor(
             // Ignore TTS initialization error
         }
     }
+
 
     override fun onInit(status: Int) {
         if (status == TextToSpeech.SUCCESS) {
@@ -138,12 +168,14 @@ class DefaultAudioHapticManager @Inject constructor(
     }
 
     override fun playTransitionSound() {
+        if (!soundCuesEnabled) return
         try {
             toneGenerator?.startTone(ToneGenerator.TONE_PROP_BEEP, 150)
         } catch (_: Exception) {}
     }
 
     override fun vibrateTransition() {
+        if (!vibrationEnabled) return
         try {
             val timings = longArrayOf(0, 300, 150, 300)
             val amplitudes = intArrayOf(0, 200, 0, 200)
@@ -152,6 +184,7 @@ class DefaultAudioHapticManager @Inject constructor(
     }
 
     override fun speak(message: String) {
+        if (!voiceCuesEnabled) return
         try {
             if (_isTtsReady.value) {
                 pendingSpeechMessage = null
@@ -167,6 +200,7 @@ class DefaultAudioHapticManager @Inject constructor(
     }
 
     override fun release() {
+        scope.cancel()
         abandonAudioFocus()
         try {
             tts?.stop()

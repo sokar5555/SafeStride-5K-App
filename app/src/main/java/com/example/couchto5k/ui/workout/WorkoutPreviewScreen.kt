@@ -6,9 +6,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -44,6 +46,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.couchto5k.domain.model.IntervalType
 import com.example.couchto5k.domain.model.TrainingWorkout
 import com.example.couchto5k.domain.model.WorkoutInterval
+import com.example.couchto5k.ui.components.LocationStatusBanner
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
@@ -76,7 +79,10 @@ fun WorkoutPreviewScreen(
             TopAppBar(
                 title = { Text(workout?.title ?: "Workout Details") },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(
+                        onClick = onBack,
+                        modifier = Modifier.defaultMinSize(minWidth = 48.dp, minHeight = 48.dp),
+                    ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back",
@@ -103,8 +109,10 @@ fun WorkoutPreviewScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(horizontal = 16.dp, vertical = 8.dp)
+                .padding(horizontal = 16.dp, vertical = 8.dp),
         ) {
+            LocationStatusBanner()
+
             // Stats summary grid
             WorkoutStatsSummary(workout = currentWorkout)
 
@@ -160,12 +168,13 @@ fun WorkoutPreviewScreen(
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 12.dp),
+                    .padding(vertical = 12.dp)
+                    .heightIn(min = 52.dp),
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.PlayArrow,
-                    contentDescription = null,
+                    contentDescription = "Start workout",
                     modifier = Modifier.size(20.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
