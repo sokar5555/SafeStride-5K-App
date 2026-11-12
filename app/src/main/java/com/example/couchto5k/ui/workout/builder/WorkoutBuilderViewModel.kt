@@ -130,7 +130,7 @@ class WorkoutBuilderViewModel @Inject constructor(
     }
 
     fun moveMiddleIntervalDown(index: Int) {
-        if (index < _uiState.value.middleIntervals.size - 1) {
+        if (index < (_uiState.value.middleIntervals.size - 1)) {
             moveMiddleInterval(index, index + 1)
         }
     }

@@ -38,7 +38,7 @@ class DefaultWorkoutHistoryRepository @Inject constructor(
                 longitude = entity.longitude,
                 altitude = entity.altitude,
                 accuracyMeters = entity.accuracyMeters,
-                timestamp = entity.timestamp
+                timestamp = entity.timestamp,
             )
         }
         return workoutDetails.copy(routePoints = routePoints)

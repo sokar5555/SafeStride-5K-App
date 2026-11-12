@@ -248,7 +248,7 @@ fun ActiveWorkoutScreen(
                     Surface(
                         color = MaterialTheme.colorScheme.surfaceVariant,
                         shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.padding(bottom = 8.dp)
+                        modifier = Modifier.padding(bottom = 8.dp),
                     ) {
                         Text(
                             text = "Interval $currentStep of $totalSteps",

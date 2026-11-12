@@ -170,7 +170,7 @@ fun AppNavGraph(
             arguments = listOf(navArgument("workoutId") { type = NavType.LongType }),
         ) {
             WorkoutDetailScreen(
-                onBack = { navController.popBackStack() },
+                onBack = navController::popBackStack,
             )
         }
     }

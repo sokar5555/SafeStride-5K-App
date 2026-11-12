@@ -24,7 +24,7 @@ class GetCombinedScheduleUseCase @Inject constructor(
             val today = LocalDate.now()
 
             val workoutsMap = workoutsList.associateBy { (id) -> id }
-            val completedMap = completedList.associateBy { it.workout.trainingWorkoutId }
+            val completedMap = completedList.associateBy { (workout) -> workout.trainingWorkoutId }
 
             // Find the first uncompleted workout scheduled today or in the future
             val nextAvailable = scheduledList.firstOrNull { entity ->

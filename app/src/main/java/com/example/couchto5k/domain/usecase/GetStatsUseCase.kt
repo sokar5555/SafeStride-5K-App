@@ -35,16 +35,16 @@ class GetStatsUseCase @Inject constructor(
     fun invoke(): Flow<StatsData?> {
         return combine(
             workoutHistoryRepository.getHistory(),
-            trainingPlanRepository.getAllWorkouts()
+            trainingPlanRepository.getAllWorkouts(),
         ) { history, allWorkouts ->
             if (history.isEmpty()) return@combine null
 
             // 1. Overall Stats
             val completedWorkoutsCount = history.size
-            val totalDistanceMeters = history.sumOf { it.workout.distanceMeters }
-            val totalDurationSeconds = history.sumOf { it.workout.durationSeconds }
-            val totalRunningSeconds = history.sumOf { it.workout.runningSeconds }
-            val totalWalkingSeconds = history.sumOf { it.workout.walkingSeconds }
+            val totalDistanceMeters = history.sumOf { (workout) -> workout.distanceMeters }
+            val totalDurationSeconds = history.sumOf { (workout) -> workout.durationSeconds }
+            val totalRunningSeconds = history.sumOf { (workout) -> workout.runningSeconds }
+            val totalWalkingSeconds = history.sumOf { (workout) -> workout.walkingSeconds }
             val aggregateAveragePaceSecondsPerKm = if (totalDistanceMeters > 0) {
                 totalDurationSeconds / (totalDistanceMeters / 1000.0)
             } else {

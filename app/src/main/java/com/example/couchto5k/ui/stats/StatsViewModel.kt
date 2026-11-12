@@ -38,7 +38,7 @@ class StatsViewModel @Inject constructor(
 
     val uiState: StateFlow<StatsUiState> = combine(
         getStatsUseCase.invoke(),
-        settingsRepository.distanceUnit
+        settingsRepository.distanceUnit,
     ) { statsData, distanceUnit ->
         if (statsData == null) {
             StatsUiState.Empty

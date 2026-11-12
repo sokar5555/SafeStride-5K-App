@@ -104,7 +104,7 @@ fun HistoryScreen(
                         details = item,
                         distanceUnit = distanceUnit,
                         onClick = { onWorkoutClick(item.workout.id) },
-                        onDeleteClick = { workoutToDelete = item.workout.id }
+                        onDeleteClick = { workoutToDelete = item.workout.id },
                     )
                 }
             }
