@@ -8,6 +8,7 @@ import com.example.couchto5k.domain.model.IntervalType
 import com.example.couchto5k.domain.model.TrainingWorkout
 import com.example.couchto5k.domain.model.WorkoutInterval
 import com.example.couchto5k.domain.repository.TrainingPlanRepository
+import com.example.couchto5k.engine.WorkoutEngine
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -37,11 +38,13 @@ class DefaultTrainingPlanRepository @Inject constructor(
     }
 
     override suspend fun getWorkoutById(id: Long): TrainingWorkout? {
-        return if (id >= CUSTOM_WORKOUT_OFFSET) {
-            val dbId = id - CUSTOM_WORKOUT_OFFSET
-            customWorkoutDao.getCustomWorkoutById(dbId)?.toTrainingWorkout(CUSTOM_WORKOUT_OFFSET)
-        } else {
-            workouts.find { (workoutId) -> workoutId == id }
+        return when {
+            id == WorkoutEngine.FREE_RUN_WORKOUT_ID -> WorkoutEngine.FREE_RUN_WORKOUT
+            id >= CUSTOM_WORKOUT_OFFSET -> {
+                val dbId = id - CUSTOM_WORKOUT_OFFSET
+                customWorkoutDao.getCustomWorkoutById(dbId)?.toTrainingWorkout(CUSTOM_WORKOUT_OFFSET)
+            }
+            else -> workouts.find { (workoutId) -> workoutId == id } ?: generateProgressiveWorkoutById(id)
         }
     }
 
@@ -257,6 +260,69 @@ class DefaultTrainingPlanRepository @Inject constructor(
             }
 
             list
+        }
+
+        /**
+         * Generates progressive running workouts for weeks beyond Week 9 (5K) using the +10% weekly
+         * volume increase rule.
+         *
+         * Base Week 9 running volume = 3 * 30 min = 90 minutes (5400 seconds).
+         * Each week w > 9 multiplies the previous week's total running volume by 1.10 (+10%).
+         * Workouts 1 & 2 are shorter midweek runs (~30% of weekly volume each), and Workout 3 is the
+         * designated Long Run (~40% of weekly volume).
+         */
+        fun generateProgressiveWeeks(beyond5kWeeks: Int): List<TrainingWorkout> {
+            if (beyond5kWeeks <= 0) return emptyList()
+            val progressiveList = mutableListOf<TrainingWorkout>()
+            var weeklyRunVolumeSeconds = 90 * 60.0 // Week 9 base: 90 minutes total running
+
+            for (offset in 1..beyond5kWeeks) {
+                val weekNumber = 9 + offset
+                weeklyRunVolumeSeconds *= 1.10 // +10% weekly running volume increase
+
+                // Distribute weekly volume across 2 shorter midweek runs (30% each) and 1 Long Run (40%)
+                val midweekRunSeconds = ((weeklyRunVolumeSeconds * 0.30) / 60.0).toInt() * 60
+                val longRunSeconds = ((weeklyRunVolumeSeconds * 0.40) / 60.0).toInt() * 60
+
+                val baseId = ((weekNumber - 1) * 3).toLong()
+
+                progressiveList.add(
+                    TrainingWorkout(
+                        id = baseId + 1L,
+                        week = weekNumber,
+                        workoutNumber = 1,
+                        title = "Week $weekNumber, Workout 1 (Midweek Run)",
+                        intervals = createIntervals(midweekRunSeconds to 0),
+                    ),
+                )
+                progressiveList.add(
+                    TrainingWorkout(
+                        id = baseId + 2L,
+                        week = weekNumber,
+                        workoutNumber = 2,
+                        title = "Week $weekNumber, Workout 2 (Midweek Run)",
+                        intervals = createIntervals(midweekRunSeconds to 0),
+                    ),
+                )
+                progressiveList.add(
+                    TrainingWorkout(
+                        id = baseId + 3L,
+                        week = weekNumber,
+                        workoutNumber = 3,
+                        title = "Week $weekNumber, Workout 3 (Long Run)",
+                        intervals = createIntervals(longRunSeconds to 0),
+                    ),
+                )
+            }
+            return progressiveList
+        }
+
+        fun generateProgressiveWorkoutById(id: Long): TrainingWorkout? {
+            if (id <= 27L || id >= CUSTOM_WORKOUT_OFFSET) return null
+            val weekNumber = ((id - 1L) / 3L).toInt() + 1
+            val beyondWeeks = weekNumber - 9
+            if (beyondWeeks <= 0 || beyondWeeks > 52) return null
+            return generateProgressiveWeeks(beyondWeeks).find { it.id == id }
         }
     }
 }

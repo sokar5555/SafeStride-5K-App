@@ -23,13 +23,11 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -37,7 +35,6 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -51,6 +48,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.couchto5k.domain.model.TrainingWorkout
+import com.example.couchto5k.engine.WorkoutEngine
+import com.example.couchto5k.ui.components.AppCardRole
+import com.example.couchto5k.ui.components.AppHeaderBanner
+import com.example.couchto5k.ui.components.AppSectionCard
+import com.example.couchto5k.ui.components.AppSectionHeader
 import com.example.couchto5k.ui.utils.formatDuration
 import com.example.couchto5k.ui.utils.squishyOverscroll
 
@@ -71,14 +73,8 @@ fun HomeScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = "SafeStride 5K",
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                },
+            AppHeaderBanner(
+                title = "SafeStride 5K",
                 actions = {
                     IconButton(
                         onClick = onSettingsClick,
@@ -87,7 +83,6 @@ fun HomeScreen(
                         Icon(
                             imageVector = Icons.Default.Settings,
                             contentDescription = "Settings",
-                            tint = MaterialTheme.colorScheme.primary,
                         )
                     }
                 },
@@ -101,116 +96,148 @@ fun HomeScreen(
                 .padding(innerPadding)
                 .padding(horizontal = 16.dp)
                 .squishyOverscroll(),
+            contentPadding = PaddingValues(vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            // Build Custom Workout Feature Card
+            // Free Run Mode Feature Card
             item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    ),
-                    shape = RoundedCornerShape(16.dp),
+                AppSectionCard(
+                    role = AppCardRole.HIGHLIGHT,
+                    cornerRadius = 16.dp,
                 ) {
-                    Column(
-                        modifier = Modifier.padding(20.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Timer,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "Build Custom Workout",
+                            text = "Free Run Mode",
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onPrimaryContainer,
                         )
+                    }
 
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Text(
+                        text = "Open-ended run with count-up timer, live GPS route tracking, and automatic mile/km split cues.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f),
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Button(
+                        onClick = { onStartWorkoutClick(WorkoutEngine.FREE_RUN_WORKOUT_ID) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp),
+                        shape = RoundedCornerShape(12.dp),
+                    ) {
+                        Icon(imageVector = Icons.Default.PlayArrow, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "Design your own custom run and walk intervals with automatic warmup and cooldown.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
+                            text = "START FREE RUN",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 15.sp,
                         )
+                    }
+                }
+            }
 
-                        Button(
-                            onClick = onBuildCustomWorkoutClick,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(48.dp),
-                            shape = RoundedCornerShape(12.dp),
-                        ) {
-                            Icon(imageVector = Icons.Default.Add, contentDescription = null)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "BUILD WORKOUT",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 15.sp,
-                            )
-                        }
+            // Build Custom Workout Feature Card
+            item {
+                AppSectionCard(
+                    role = AppCardRole.CONTENT,
+                    cornerRadius = 16.dp,
+                ) {
+                    Text(
+                        text = "Build Custom Workout",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Text(
+                        text = "Design your own custom run and walk intervals with automatic warmup and cooldown.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    OutlinedButton(
+                        onClick = onBuildCustomWorkoutClick,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp),
+                        shape = RoundedCornerShape(12.dp),
+                    ) {
+                        Icon(imageVector = Icons.Default.Add, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "BUILD WORKOUT",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp,
+                        )
                     }
                 }
             }
 
             // C25K Standard Plan Access Card
             item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                    ),
-                    shape = RoundedCornerShape(16.dp),
+                AppSectionCard(
+                    role = AppCardRole.CONTENT,
+                    cornerRadius = 16.dp,
                 ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.DirectionsRun,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "C25K 9-Week Plan",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                            )
-                        }
-
-                        Text(
-                            text = "Standard Couch to 5K beginner progression program.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.DirectionsRun,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
                         )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "C25K 9-Week Plan",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
 
-                        OutlinedButton(
-                            onClick = onSelectProgramClick,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(min = 48.dp),
-                            shape = RoundedCornerShape(10.dp),
-                        ) {
-                            Text("BROWSE C25K WORKOUTS", fontWeight = FontWeight.Bold)
-                        }
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Text(
+                        text = "Standard Couch to 5K beginner progression program.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    OutlinedButton(
+                        onClick = onSelectProgramClick,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 48.dp),
+                        shape = RoundedCornerShape(12.dp),
+                    ) {
+                        Text("BROWSE C25K WORKOUTS", fontWeight = FontWeight.Bold)
                     }
                 }
             }
 
             // Saved Workouts Section at the bottom of the Home screen
             item {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp),
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = "Saved Workouts",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                        )
+                AppSectionHeader(
+                    title = "Saved Workouts",
+                    showDivider = true,
+                    modifier = Modifier.padding(top = 8.dp),
+                    trailingContent = {
                         if (customWorkouts.isNotEmpty()) {
                             IconButton(onClick = { showClearAllSavedDialog = true }) {
                                 Icon(
@@ -219,31 +246,19 @@ fun HomeScreen(
                                 )
                             }
                         }
-                    }
-                    Spacer(modifier = Modifier.height(4.dp))
-                    HorizontalDivider(
-                        modifier = Modifier.fillMaxWidth(),
-                        thickness = 2.dp,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                }
+                    },
+                )
             }
 
             if (customWorkouts.isEmpty()) {
                 item {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 8.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                        ),
-                        shape = RoundedCornerShape(12.dp),
+                    AppSectionCard(
+                        role = AppCardRole.CONTENT,
+                        cornerRadius = 12.dp,
+                        contentPadding = PaddingValues(24.dp),
                     ) {
                         Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(24.dp),
+                            modifier = Modifier.fillMaxWidth(),
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
@@ -266,13 +281,9 @@ fun HomeScreen(
                         workout = workout,
                         onStartClick = { onStartWorkoutClick(workout.id) },
                         onPreviewClick = { onWorkoutPreviewClick(workout.id) },
-                        onDeleteClick = { workoutToDelete = workout }
+                        onDeleteClick = { workoutToDelete = workout },
                     )
                 }
-            }
-
-            item {
-                Spacer(modifier = Modifier.height(16.dp))
             }
         }
     }
@@ -332,89 +343,85 @@ private fun SavedWorkoutCard(
     onPreviewClick: () -> Unit,
     onDeleteClick: () -> Unit,
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        shape = RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+    AppSectionCard(
+        role = AppCardRole.CONTENT,
+        cornerRadius = 12.dp,
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = workout.title,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.weight(1f),
-                )
-
-                IconButton(onClick = onDeleteClick) {
-                    Icon(
-                        imageVector = Icons.Default.Delete,
-                        contentDescription = "Delete Custom Workout",
-                        tint = MaterialTheme.colorScheme.error,
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(4.dp))
-
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             Text(
-                text = "${formatDuration(workout.totalPlannedDurationSeconds)} total • ${workout.numberOfRunIntervals} runs, ${workout.numberOfWalkIntervals} walks",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                text = workout.title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.weight(1f),
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            IconButton(onClick = onDeleteClick) {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = "Delete Custom Workout",
+                    tint = MaterialTheme.colorScheme.error,
+                )
+            }
+        }
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+        Spacer(modifier = Modifier.height(4.dp))
+
+        Text(
+            text = "${formatDuration(workout.totalPlannedDurationSeconds)} total • ${workout.numberOfRunIntervals} runs, ${workout.numberOfWalkIntervals} walks",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Button(
+                onClick = onStartClick,
+                modifier = Modifier
+                    .weight(1f)
+                    .heightIn(min = 48.dp),
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
+                shape = RoundedCornerShape(12.dp),
             ) {
-                Button(
-                    onClick = onStartClick,
-                    modifier = Modifier
-                        .weight(1f)
-                        .heightIn(min = 48.dp),
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
-                    shape = RoundedCornerShape(8.dp),
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.PlayArrow,
-                        contentDescription = "Start workout",
-                        modifier = Modifier.size(18.dp),
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = "START NOW",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp,
-                    )
-                }
+                Icon(
+                    imageVector = Icons.Default.PlayArrow,
+                    contentDescription = "Start workout",
+                    modifier = Modifier.size(18.dp),
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = "START NOW",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.sp,
+                )
+            }
 
-                OutlinedButton(
-                    onClick = onPreviewClick,
-                    modifier = Modifier
-                        .weight(1f)
-                        .heightIn(min = 48.dp),
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
-                    shape = RoundedCornerShape(8.dp),
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Visibility,
-                        contentDescription = "Preview workout",
-                        modifier = Modifier.size(18.dp),
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = "PREVIEW",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp,
-                    )
-                }
+            OutlinedButton(
+                onClick = onPreviewClick,
+                modifier = Modifier
+                    .weight(1f)
+                    .heightIn(min = 48.dp),
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
+                shape = RoundedCornerShape(12.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Visibility,
+                    contentDescription = "Preview workout",
+                    modifier = Modifier.size(18.dp),
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = "PREVIEW",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.sp,
+                )
             }
         }
     }

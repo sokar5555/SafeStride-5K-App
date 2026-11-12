@@ -18,6 +18,10 @@ interface SettingsRepository {
         get() = flowOf(true)
     val onboardingComplete: Flow<Boolean>
         get() = flowOf(false)
+    val progressiveWeeksExtension: Flow<Int>
+        get() = flowOf(0)
+    val longRunDay: Flow<DayOfWeek>
+        get() = flowOf(DayOfWeek.SATURDAY)
 
     suspend fun setProgramStartDate(date: LocalDate)
     suspend fun setPreferredWorkoutDays(days: Set<DayOfWeek>)
@@ -26,5 +30,7 @@ interface SettingsRepository {
     suspend fun setSoundCuesEnabled(enabled: Boolean) {}
     suspend fun setVibrationEnabled(enabled: Boolean) {}
     suspend fun setOnboardingComplete(complete: Boolean) {}
+    suspend fun setProgressiveWeeksExtension(weeks: Int) {}
+    suspend fun setLongRunDay(day: DayOfWeek) {}
 }
 

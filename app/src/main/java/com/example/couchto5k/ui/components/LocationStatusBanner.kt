@@ -98,7 +98,7 @@ fun LocationStatusBanner(
                 .fillMaxWidth()
                 .padding(bottom = 12.dp),
             colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                containerColor = MaterialTheme.colorScheme.errorContainer,
             ),
             shape = RoundedCornerShape(12.dp),
         ) {
@@ -114,14 +114,14 @@ fun LocationStatusBanner(
                     Icon(
                         imageVector = Icons.Default.LocationDisabled,
                         contentDescription = "Location disabled warning",
-                        tint = MaterialTheme.colorScheme.primary,
+                        tint = MaterialTheme.colorScheme.error,
                         modifier = Modifier.size(22.dp),
                     )
                     Text(
                         text = "Location disabled. Workout timer will continue, but GPS distance and route tracking require Location permission.",
                         style = MaterialTheme.typography.bodySmall,
                         fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurface,
+                        color = MaterialTheme.colorScheme.onErrorContainer,
                         modifier = Modifier.weight(1f),
                     )
                 }

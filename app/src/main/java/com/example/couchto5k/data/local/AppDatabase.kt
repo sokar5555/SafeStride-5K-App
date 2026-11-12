@@ -22,7 +22,7 @@ import com.example.couchto5k.data.local.entity.ScheduledWorkoutEntity
         CustomWorkoutIntervalEntity::class,
         LocationPointEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)

@@ -6,5 +6,6 @@ data class CompletedInterval(
     val intervalType: IntervalType,
     val plannedDurationSeconds: Int,
     val actualDurationSeconds: Int,
-    val completed: Boolean
+    val distanceMeters: Double = 0.0,
+    val completed: Boolean,
 )

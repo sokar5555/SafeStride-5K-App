@@ -1,9 +1,11 @@
 package com.example.couchto5k.engine
 
 import android.os.SystemClock
+import com.example.couchto5k.domain.model.DistanceUnit
 import com.example.couchto5k.domain.model.IntervalType
 import com.example.couchto5k.domain.model.TrainingWorkout
 import com.example.couchto5k.domain.model.WorkoutInterval
+import com.example.couchto5k.domain.repository.SettingsRepository
 import com.example.couchto5k.location.LocationPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -12,6 +14,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -21,14 +24,37 @@ import javax.inject.Singleton
 import kotlin.time.Duration.Companion.milliseconds
 
 @Singleton
-class WorkoutEngine @Inject constructor(
+class WorkoutEngine internal constructor(
     private val audioHapticManager: AudioHapticManager,
+    private val settingsRepository: SettingsRepository?,
+    @Suppress("UNUSED_PARAMETER") unusedMarker: Boolean = true,
 ) {
+    @Inject
+    constructor(
+        audioHapticManager: AudioHapticManager,
+        settingsRepository: SettingsRepository,
+    ) : this(
+        audioHapticManager = audioHapticManager,
+        settingsRepository = settingsRepository,
+        unusedMarker = true,
+    )
+
+    constructor(
+        audioHapticManager: AudioHapticManager,
+    ) : this(
+        audioHapticManager = audioHapticManager,
+        settingsRepository = null,
+        unusedMarker = true,
+    )
+
     private val _workoutState = MutableStateFlow(ActiveWorkoutState())
     val workoutState: StateFlow<ActiveWorkoutState> = _workoutState.asStateFlow()
 
     private var activeWorkout: TrainingWorkout? = null
     private var tickerJob: Job? = null
+
+    @Volatile
+    private var currentDistanceUnit: DistanceUnit = DistanceUnit.MILES
 
     // Core timing anchors
     private var intervalStartRealtimeMillis: Long = 0L
@@ -39,39 +65,105 @@ class WorkoutEngine @Inject constructor(
     private var pauseStartRealtimeMillis: Long = 0L
     private var accumulatedPauseMillisInCurrentInterval: Long = 0L
 
+    // Split tracking anchors
+    private var splitStartElapsedMillis: Long = 0L
+    private var completedSplitsCount: Int = 0
+
+    // Per-interval distance tracking
+    private var intervalStartDistanceMeters: Double = 0.0
+
     private val engineScope = CoroutineScope(Dispatchers.Main)
 
-    fun start(workout: TrainingWorkout) {
+    companion object {
+        const val FREE_RUN_WORKOUT_ID = 0L
+        const val METERS_PER_MILE = 1609.34
+        const val METERS_PER_KM = 1000.0
+
+        val FREE_RUN_WORKOUT = TrainingWorkout(
+            id = FREE_RUN_WORKOUT_ID,
+            week = 0,
+            workoutNumber = 0,
+            title = "Free Run",
+            intervals = listOf(WorkoutInterval(sequence = 0, type = IntervalType.RUN, durationSeconds = 0)),
+        )
+    }
+
+    init {
+        if (settingsRepository != null) {
+            engineScope.launch {
+                settingsRepository.distanceUnit.collectLatest { unit ->
+                    currentDistanceUnit = unit
+                }
+            }
+        }
+    }
+
+    fun setDistanceUnit(unit: DistanceUnit) {
+        currentDistanceUnit = unit
+    }
+
+    private fun getSplitThresholdMeters(): Double {
+        return if (currentDistanceUnit == DistanceUnit.MILES) METERS_PER_MILE else METERS_PER_KM
+    }
+
+    fun startFreeRun() {
+        start(FREE_RUN_WORKOUT, isFreeRun = true)
+    }
+
+    fun start(workout: TrainingWorkout, isFreeRun: Boolean = workout.id == FREE_RUN_WORKOUT_ID) {
         val currentStatus = workoutState.value.status
         if ((activeWorkout != null) && (currentStatus != WorkoutEngineStatus.COMPLETED) && (currentStatus != WorkoutEngineStatus.CANCELLED) && (currentStatus != WorkoutEngineStatus.NOT_STARTED)) {
             stopWorkout()
         }
 
-        activeWorkout = workout
-        if (workout.intervals.isEmpty()) {
+        val resolvedWorkout = if (isFreeRun && workout.intervals.isEmpty()) {
+            FREE_RUN_WORKOUT.copy(id = workout.id, title = workout.title.ifBlank { "Free Run" })
+        } else {
+            workout
+        }
+
+        activeWorkout = resolvedWorkout
+        if (!isFreeRun && resolvedWorkout.intervals.isEmpty()) {
             _workoutState.value = ActiveWorkoutState(status = WorkoutEngineStatus.COMPLETED)
             return
         }
 
-        val firstInterval = workout.intervals.first()
+        val firstInterval = resolvedWorkout.intervals.firstOrNull()
+            ?: WorkoutInterval(0, IntervalType.RUN, 0)
 
-        intervalDurationMillis = firstInterval.durationSeconds * 1000L
+        intervalDurationMillis = if (isFreeRun) 0L else firstInterval.durationSeconds * 1000L
         intervalStartRealtimeMillis = SystemClock.elapsedRealtime()
         totalElapsedBeforeCurrentIntervalMillis = 0L
         accumulatedPauseMillisInCurrentInterval = 0L
 
+        splitStartElapsedMillis = 0L
+        completedSplitsCount = 0
+        intervalStartDistanceMeters = 0.0
+
         _workoutState.value = ActiveWorkoutState(
-            workoutId = workout.id,
+            workoutId = resolvedWorkout.id,
+            isFreeRun = isFreeRun,
             currentIntervalIndex = 0,
             currentInterval = firstInterval,
             intervalRemainingMillis = intervalDurationMillis,
             totalElapsedMillis = 0L,
             isPaused = false,
+            distanceMeters = 0.0,
+            currentSplitDistanceMeters = 0.0,
+            currentSplitDurationMillis = 0L,
+            currentSplitPaceSecondsPerKm = 0.0,
+            intervalDistancesMeters = mapOf(0 to 0.0),
             startedAt = Instant.now(),
             status = WorkoutEngineStatus.RUNNING,
         )
 
-        announceInterval(firstInterval)
+        if (isFreeRun) {
+            audioHapticManager.playTransitionSound()
+            audioHapticManager.vibrateTransition()
+            audioHapticManager.speak("Free run started")
+        } else {
+            announceInterval(firstInterval)
+        }
         startTicker()
     }
 
@@ -107,6 +199,10 @@ class WorkoutEngine @Inject constructor(
 
     fun skipToNextInterval() {
         val currentWorkout = activeWorkout ?: return
+        if (_workoutState.value.isFreeRun) {
+            completeWorkout()
+            return
+        }
         val currentIntervalIndex = _workoutState.value.currentIntervalIndex
 
         if (currentIntervalIndex < currentWorkout.intervals.size - 1) {
@@ -118,6 +214,7 @@ class WorkoutEngine @Inject constructor(
 
     fun previousInterval() {
         val currentWorkout = activeWorkout ?: return
+        if (_workoutState.value.isFreeRun) return
         val currentIntervalIndex = _workoutState.value.currentIntervalIndex
 
         if (currentIntervalIndex > 0) {
@@ -130,8 +227,53 @@ class WorkoutEngine @Inject constructor(
 
     fun addDistance(meters: Double) {
         if (meters <= 0.0) return
+
+        val currentState = _workoutState.value
+        val activeElapsedMillis = computeActiveTotalElapsedMillis(currentState)
+        val newTotalDistance = currentState.distanceMeters + meters
+        val currentIntervalDistance = (newTotalDistance - intervalStartDistanceMeters).coerceAtLeast(0.0)
+        val updatedIntervalDistances = currentState.intervalDistancesMeters.toMutableMap().apply {
+            put(currentState.currentIntervalIndex, currentIntervalDistance)
+        }
+
+        val splitThreshold = getSplitThresholdMeters()
+        var newSplitDistance = currentState.currentSplitDistanceMeters + meters
+        var currentSplitDuration = (activeElapsedMillis - splitStartElapsedMillis).coerceAtLeast(0L)
+
+        while (newSplitDistance >= splitThreshold) {
+            completedSplitsCount++
+            newSplitDistance -= splitThreshold
+
+            val splitDurationSeconds = currentSplitDuration / 1000.0
+            val splitPaceSecondsPerUnit = if (splitDurationSeconds > 0.0) {
+                splitDurationSeconds
+            } else {
+                0.0
+            }
+
+            audioHapticManager.announceSplit(
+                splitNumber = completedSplitsCount,
+                paceSecondsPerUnit = splitPaceSecondsPerUnit,
+                unit = currentDistanceUnit,
+            )
+
+            splitStartElapsedMillis = activeElapsedMillis
+            currentSplitDuration = 0L
+        }
+
+        val splitPaceSecondsPerKm = calculateSplitPaceSecondsPerKm(
+            splitDistanceMeters = newSplitDistance,
+            splitDurationMillis = currentSplitDuration,
+        )
+
         _workoutState.update {
-            it.copy(distanceMeters = it.distanceMeters + meters)
+            it.copy(
+                distanceMeters = newTotalDistance,
+                currentSplitDistanceMeters = newSplitDistance,
+                currentSplitDurationMillis = currentSplitDuration,
+                currentSplitPaceSecondsPerKm = splitPaceSecondsPerKm,
+                intervalDistancesMeters = updatedIntervalDistances,
+            )
         }
     }
 
@@ -141,8 +283,17 @@ class WorkoutEngine @Inject constructor(
         }
     }
 
+    fun completeFreeRun() {
+        if (_workoutState.value.status == WorkoutEngineStatus.COMPLETED) return
+        completeWorkout()
+    }
+
     fun stopWorkout() {
         val currentState = _workoutState.value
+        if (currentState.isFreeRun && currentState.status != WorkoutEngineStatus.COMPLETED) {
+            completeWorkout()
+            return
+        }
         if (currentState.currentInterval?.type == IntervalType.COOLDOWN && currentState.status != WorkoutEngineStatus.COMPLETED) {
             completeWorkout()
             return
@@ -159,17 +310,29 @@ class WorkoutEngine @Inject constructor(
     }
 
     private fun completeWorkout() {
+        val currentState = _workoutState.value
+        val activeElapsedMillis = computeActiveTotalElapsedMillis(currentState)
+        val currentIntervalDistance = (currentState.distanceMeters - intervalStartDistanceMeters).coerceAtLeast(0.0)
+        val finalIntervalDistances = currentState.intervalDistancesMeters.toMutableMap().apply {
+            put(currentState.currentIntervalIndex, currentIntervalDistance)
+        }
+
         stopTicker()
         audioHapticManager.playTransitionSound()
         audioHapticManager.vibrateTransition()
         audioHapticManager.speak("Workout complete!")
 
-        val totalPlannedMillis = (activeWorkout?.totalPlannedDurationSeconds ?: 0) * 1000L
+        val totalPlannedMillis = if (currentState.isFreeRun) {
+            0L
+        } else {
+            (activeWorkout?.totalPlannedDurationSeconds ?: 0) * 1000L
+        }
 
         _workoutState.update {
             it.copy(
                 intervalRemainingMillis = 0L,
-                totalElapsedMillis = if (totalPlannedMillis > 0) maxOf(it.totalElapsedMillis, totalPlannedMillis) else it.totalElapsedMillis,
+                totalElapsedMillis = if (totalPlannedMillis > 0) maxOf(activeElapsedMillis, totalPlannedMillis) else maxOf(it.totalElapsedMillis, activeElapsedMillis),
+                intervalDistancesMeters = finalIntervalDistances,
                 isPaused = true,
                 status = WorkoutEngineStatus.COMPLETED,
             )
@@ -178,6 +341,14 @@ class WorkoutEngine @Inject constructor(
 
     private fun transitionToInterval(newIndex: Int, workout: TrainingWorkout) {
         val currentState = _workoutState.value
+
+        // Snapshot cumulative distance for the interval we are leaving
+        val currentIntervalDistance = (currentState.distanceMeters - intervalStartDistanceMeters).coerceAtLeast(0.0)
+        val updatedIntervalDistances = currentState.intervalDistancesMeters.toMutableMap().apply {
+            put(currentState.currentIntervalIndex, currentIntervalDistance)
+            putIfAbsent(newIndex, 0.0)
+        }
+        intervalStartDistanceMeters = currentState.distanceMeters
 
         // Calculate total elapsed up to this point exactly based on intervals before this one
         var exactTotalElapsedSoFarSeconds = 0
@@ -201,6 +372,7 @@ class WorkoutEngine @Inject constructor(
                 currentInterval = newInterval,
                 intervalRemainingMillis = intervalDurationMillis,
                 totalElapsedMillis = totalElapsedBeforeCurrentIntervalMillis,
+                intervalDistancesMeters = updatedIntervalDistances,
                 isPaused = wasPaused,
                 status = if (wasPaused) WorkoutEngineStatus.PAUSED else WorkoutEngineStatus.RUNNING,
             )
@@ -253,15 +425,52 @@ class WorkoutEngine @Inject constructor(
         tickerJob = null
     }
 
-    private fun updateTime() {
+    private fun computeActiveTotalElapsedMillis(currentState: ActiveWorkoutState): Long {
+        if (currentState.status == WorkoutEngineStatus.NOT_STARTED) return 0L
+        if (currentState.isPaused || currentState.status != WorkoutEngineStatus.RUNNING) {
+            return currentState.totalElapsedMillis
+        }
+        val now = SystemClock.elapsedRealtime()
+        val activeMillisInInterval = (now - intervalStartRealtimeMillis - accumulatedPauseMillisInCurrentInterval).coerceAtLeast(0L)
+        return maxOf(currentState.totalElapsedMillis, totalElapsedBeforeCurrentIntervalMillis + activeMillisInInterval)
+    }
+
+    private fun calculateSplitPaceSecondsPerKm(
+        splitDistanceMeters: Double,
+        splitDurationMillis: Long,
+    ): Double {
+        if (splitDistanceMeters <= 0.001 || splitDurationMillis <= 0L) return 0.0
+        val splitDurationSeconds = splitDurationMillis / 1000.0
+        val splitKm = splitDistanceMeters / 1000.0
+        return splitDurationSeconds / splitKm
+    }
+
+    internal fun updateTime() {
         val currentState = _workoutState.value
         if (currentState.status != WorkoutEngineStatus.RUNNING || currentState.isPaused) return
 
         val workout = activeWorkout ?: return
 
         val now = SystemClock.elapsedRealtime()
+        val activeMillisInInterval = (now - intervalStartRealtimeMillis - accumulatedPauseMillisInCurrentInterval).coerceAtLeast(0L)
+        val totalElapsed = totalElapsedBeforeCurrentIntervalMillis + activeMillisInInterval
+        val currentSplitDuration = (totalElapsed - splitStartElapsedMillis).coerceAtLeast(0L)
+        val splitPaceSecondsPerKm = calculateSplitPaceSecondsPerKm(
+            splitDistanceMeters = currentState.currentSplitDistanceMeters,
+            splitDurationMillis = currentSplitDuration,
+        )
 
-        val activeMillisInInterval = now - intervalStartRealtimeMillis - accumulatedPauseMillisInCurrentInterval
+        if (currentState.isFreeRun) {
+            _workoutState.update {
+                it.copy(
+                    intervalRemainingMillis = 0L,
+                    totalElapsedMillis = totalElapsed,
+                    currentSplitDurationMillis = currentSplitDuration,
+                    currentSplitPaceSecondsPerKm = splitPaceSecondsPerKm,
+                )
+            }
+            return
+        }
 
         val remainingMillis = intervalDurationMillis - activeMillisInInterval
 
@@ -276,7 +485,9 @@ class WorkoutEngine @Inject constructor(
             _workoutState.update {
                 it.copy(
                     intervalRemainingMillis = remainingMillis,
-                    totalElapsedMillis = totalElapsedBeforeCurrentIntervalMillis + activeMillisInInterval,
+                    totalElapsedMillis = totalElapsed,
+                    currentSplitDurationMillis = currentSplitDuration,
+                    currentSplitPaceSecondsPerKm = splitPaceSecondsPerKm,
                 )
             }
         }

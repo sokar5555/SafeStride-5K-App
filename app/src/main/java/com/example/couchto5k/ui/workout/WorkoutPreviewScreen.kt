@@ -46,6 +46,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.couchto5k.domain.model.IntervalType
 import com.example.couchto5k.domain.model.TrainingWorkout
 import com.example.couchto5k.domain.model.WorkoutInterval
+import com.example.couchto5k.ui.components.AppHeaderBanner
 import com.example.couchto5k.ui.components.LocationStatusBanner
 import android.Manifest
 import android.content.pm.PackageManager
@@ -76,19 +77,9 @@ fun WorkoutPreviewScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(workout?.title ?: "Workout Details") },
-                navigationIcon = {
-                    IconButton(
-                        onClick = onBack,
-                        modifier = Modifier.defaultMinSize(minWidth = 48.dp, minHeight = 48.dp),
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
-                        )
-                    }
-                },
+            AppHeaderBanner(
+                title = workout?.title ?: "Workout Details",
+                onBackClick = onBack,
             )
         },
     ) { innerPadding ->

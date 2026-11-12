@@ -14,12 +14,17 @@ enum class WorkoutEngineStatus {
 
 data class ActiveWorkoutState(
     val workoutId: Long = -1L,
+    val isFreeRun: Boolean = false,
     val currentIntervalIndex: Int = 0,
     val currentInterval: WorkoutInterval? = null,
     val intervalRemainingMillis: Long = 0L,
     val totalElapsedMillis: Long = 0L,
     val isPaused: Boolean = true,
     val distanceMeters: Double = 0.0,
+    val currentSplitDistanceMeters: Double = 0.0,
+    val currentSplitDurationMillis: Long = 0L,
+    val currentSplitPaceSecondsPerKm: Double = 0.0,
+    val intervalDistancesMeters: Map<Int, Double> = emptyMap(),
     val startedAt: Instant = Instant.MIN,
     val status: WorkoutEngineStatus = WorkoutEngineStatus.NOT_STARTED,
     val routePoints: List<LocationPoint> = emptyList(),

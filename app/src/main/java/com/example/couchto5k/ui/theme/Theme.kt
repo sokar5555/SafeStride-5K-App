@@ -29,6 +29,12 @@ private val LightColorScheme = lightColorScheme(
     outline = OutlineColor,
     error = ErrorColor,
     onError = Color.White,
+    errorContainer = ErrorContainerColor,
+    onErrorContainer = OnErrorContainerColor,
+    tertiary = SuccessColor,
+    onTertiary = Color.White,
+    tertiaryContainer = SuccessContainerColor,
+    onTertiaryContainer = OnSuccessContainerColor,
 )
 
 @Composable

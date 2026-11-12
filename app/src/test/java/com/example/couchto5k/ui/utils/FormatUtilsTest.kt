@@ -29,4 +29,21 @@ class FormatUtilsTest {
         // Zero duration
         assertEquals("--:--", formatPace(1609.344, 0, DistanceUnit.MILES))
     }
+
+    @Test
+    fun testFormatPace_capsAt300MinutesPerMile() {
+        // Exactly 300:00 /mi (18000 seconds for 1 mile) is allowed
+        assertEquals("300:00 /mi", formatPace(1609.344, 300 * 60, DistanceUnit.MILES))
+
+        // Exceeding 300 min/mi (e.g., 301 min/mi or stationary drift) returns "--:--"
+        assertEquals("--:--", formatPace(1609.344, 301 * 60, DistanceUnit.MILES))
+        assertEquals("--:--", formatPace(1.0, 600, DistanceUnit.MILES))
+        assertEquals("--:--", formatPace(1.0, 600, DistanceUnit.KILOMETERS))
+
+        // Also test formatPaceFromSecondsPerKm cap
+        assertEquals("8:02 /mi", formatPaceFromSecondsPerKm(300.0, DistanceUnit.MILES))
+        assertEquals("5:00 /km", formatPaceFromSecondsPerKm(300.0, DistanceUnit.KILOMETERS))
+        assertEquals("--:--", formatPaceFromSecondsPerKm(12000.0, DistanceUnit.MILES))
+        assertEquals("--:--", formatPaceFromSecondsPerKm(12000.0, DistanceUnit.KILOMETERS))
+    }
 }

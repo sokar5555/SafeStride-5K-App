@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -45,6 +46,10 @@ import com.example.couchto5k.domain.model.RunningProgression
 import com.example.couchto5k.domain.model.UserStats
 import com.example.couchto5k.domain.model.WeeklyDistancePoint
 import com.example.couchto5k.domain.usecase.TimeOfDayCount
+import com.example.couchto5k.ui.components.AppCardRole
+import com.example.couchto5k.ui.components.AppHeaderBanner
+import com.example.couchto5k.ui.components.AppSectionCard
+import com.example.couchto5k.ui.components.AppSectionHeader
 import com.example.couchto5k.ui.utils.formatDistance
 import com.example.couchto5k.ui.utils.formatDuration
 import com.example.couchto5k.ui.utils.formatPace
@@ -57,6 +62,9 @@ fun StatsScreen(
     val uiState by viewModel.uiState.collectAsState()
 
     Scaffold(
+        topBar = {
+            AppHeaderBanner(title = "Running Statistics")
+        },
         bottomBar = bottomBar,
     ) { innerPadding ->
         Box(
@@ -89,22 +97,24 @@ fun StatsScreen(
 @Composable
 private fun EmptyState() {
     Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        contentAlignment = Alignment.Center,
     ) {
-        Card(
-            modifier = Modifier.padding(32.dp),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+        AppSectionCard(
+            role = AppCardRole.CONTENT,
+            cornerRadius = 16.dp,
+            contentPadding = PaddingValues(24.dp),
         ) {
             Column(
-                modifier = Modifier.padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Text(
                     text = "No stats available yet. Complete your first workout to see your progress!",
                     textAlign = TextAlign.Center,
-                    style = MaterialTheme.typography.bodyLarge
+                    style = MaterialTheme.typography.bodyLarge,
                 )
             }
         }
@@ -125,7 +135,7 @@ private fun StatsContent(
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
             .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         OverallSummarySection(userStats, distanceUnit)
         RunVsWalkRatioSection(userStats)
@@ -138,7 +148,7 @@ private fun StatsContent(
 
 @Composable
 private fun OverallSummarySection(userStats: UserStats, distanceUnit: DistanceUnit) {
-    Text("Overall Stats", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+    AppSectionHeader(title = "Overall Stats")
 
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         MetricCard(Modifier.weight(1f), "Workouts", userStats.completedWorkoutsCount.toString())
@@ -159,7 +169,7 @@ private fun MetricCard(modifier: Modifier = Modifier, label: String, value: Stri
     Card(
         modifier = modifier,
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -171,90 +181,86 @@ private fun MetricCard(modifier: Modifier = Modifier, label: String, value: Stri
 
 @Composable
 private fun RunVsWalkRatioSection(userStats: UserStats) {
-    Text("Run vs Walk Ratio", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    AppSectionHeader(title = "Run vs Walk Ratio")
+    AppSectionCard(
+        role = AppCardRole.CONTENT,
+        cornerRadius = 16.dp,
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            val totalSeconds = userStats.totalRunningSeconds + userStats.totalWalkingSeconds
-            val runRatio = if (totalSeconds > 0) userStats.totalRunningSeconds.toFloat() / totalSeconds else 0f
-            val runPct = (runRatio * 100).toInt()
-            val walkPct = 100 - runPct
+        val totalSeconds = userStats.totalRunningSeconds + userStats.totalWalkingSeconds
+        val runRatio = if (totalSeconds > 0) userStats.totalRunningSeconds.toFloat() / totalSeconds else 0f
+        val runPct = (runRatio * 100).toInt()
+        val walkPct = 100 - runPct
 
-            val runColor = MaterialTheme.colorScheme.primary
-            val walkColor = Color(0xFF00796B) // High contrast deep teal for walking
+        val runColor = MaterialTheme.colorScheme.primary
+        val walkColor = Color(0xFF00796B) // High contrast deep teal for walking
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("🏃 Running: $runPct%", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = runColor)
-                Text("🚶 Walking: $walkPct%", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = walkColor)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("🏃 Running: $runPct%", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = runColor)
+            Text("🚶 Walking: $walkPct%", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = walkColor)
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Segmented Progress Bar
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(14.dp)
+                .clip(RoundedCornerShape(7.dp))
+                .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
+        ) {
+            val safeRunRatio = runRatio.coerceIn(0f, 1f)
+            val safeWalkRatio = 1f - safeRunRatio
+
+            if (safeRunRatio > 0f) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .weight(safeRunRatio)
+                        .background(runColor),
+                )
             }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Segmented Progress Bar
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(14.dp)
-                    .clip(RoundedCornerShape(7.dp))
-                    .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
-            ) {
-                val safeRunRatio = runRatio.coerceIn(0f, 1f)
-                val safeWalkRatio = 1f - safeRunRatio
-
-                if (safeRunRatio > 0f) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxHeight()
-                            .weight(safeRunRatio)
-                            .background(runColor)
-                    )
-                }
-                if (safeWalkRatio > 0f) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxHeight()
-                            .weight(safeWalkRatio)
-                            .background(walkColor)
-                    )
-                }
+            if (safeWalkRatio > 0f) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .weight(safeWalkRatio)
+                        .background(walkColor),
+                )
             }
+        }
 
-            Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text("Run Time: ${formatDuration(userStats.totalRunningSeconds)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("Walk Time: ${formatDuration(userStats.totalWalkingSeconds)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text("Run Time: ${formatDuration(userStats.totalRunningSeconds)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Walk Time: ${formatDuration(userStats.totalWalkingSeconds)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
 
 @Composable
 private fun TimeOfDayHeatmapSection(distribution: List<TimeOfDayCount>) {
-    Text("Time of Day Distribution", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    AppSectionHeader(title = "Time of Day Distribution")
+    AppSectionCard(
+        role = AppCardRole.CONTENT,
+        cornerRadius = 16.dp,
     ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             val maxCount = distribution.maxOfOrNull { it.count }?.coerceAtLeast(1) ?: 1
 
             distribution.forEach { slotCount ->
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Text("${slotCount.timeOfDay.icon} ${slotCount.timeOfDay.displayName}", modifier = Modifier.width(100.dp), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
 
@@ -263,13 +269,13 @@ private fun TimeOfDayHeatmapSection(distribution: List<TimeOfDayCount>) {
                             .weight(1f)
                             .height(10.dp)
                             .clip(RoundedCornerShape(5.dp))
-                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
                     ) {
                         Box(
                             modifier = Modifier
                                 .fillMaxHeight()
                                 .fillMaxWidth(fraction = (slotCount.count.toFloat() / maxCount).coerceIn(0f, 1f))
-                                .background(MaterialTheme.colorScheme.primary)
+                                .background(MaterialTheme.colorScheme.primary),
                         )
                     }
 
@@ -288,31 +294,28 @@ private fun TimeOfDayHeatmapSection(distribution: List<TimeOfDayCount>) {
 
 @Composable
 private fun RunningProgressionSection(runningProgression: RunningProgression) {
-    Text("Running Progression", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    AppSectionHeader(title = "Running Progression")
+    AppSectionCard(
+        role = AppCardRole.CONTENT,
+        cornerRadius = 16.dp,
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Column {
-                    Text("Starting Record", style = MaterialTheme.typography.bodySmall)
-                    Text(formatDuration(runningProgression.startingLongestRunSeconds), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                }
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Total Improvement", style = MaterialTheme.typography.bodySmall)
-                    Text("+${formatDuration(runningProgression.improvementSeconds)}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                }
-                Column(horizontalAlignment = Alignment.End) {
-                    Text("Current Record", style = MaterialTheme.typography.bodySmall)
-                    Text(formatDuration(runningProgression.currentLongestRunSeconds), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                }
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Column {
+                Text("Starting Record", style = MaterialTheme.typography.bodySmall)
+                Text(formatDuration(runningProgression.startingLongestRunSeconds), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             }
-            Spacer(modifier = Modifier.height(16.dp))
-            if (runningProgression.recordHistory.isNotEmpty()) {
-                RecordProgressionChart(runningProgression.recordHistory)
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("Total Improvement", style = MaterialTheme.typography.bodySmall)
+                Text("+${formatDuration(runningProgression.improvementSeconds)}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
             }
+            Column(horizontalAlignment = Alignment.End) {
+                Text("Current Record", style = MaterialTheme.typography.bodySmall)
+                Text(formatDuration(runningProgression.currentLongestRunSeconds), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            }
+        }
+        Spacer(modifier = Modifier.height(16.dp))
+        if (runningProgression.recordHistory.isNotEmpty()) {
+            RecordProgressionChart(runningProgression.recordHistory)
         }
     }
 }
@@ -345,7 +348,7 @@ private fun RecordProgressionChart(history: List<LongestRunRecordPoint>) {
         drawPath(
             path = path,
             color = primaryColor,
-            style = Stroke(width = 4.dp.toPx())
+            style = Stroke(width = 4.dp.toPx()),
         )
     }
 }
@@ -353,42 +356,39 @@ private fun RecordProgressionChart(history: List<LongestRunRecordPoint>) {
 @Composable
 private fun WeeklyDistanceSection(weeklyDistance: List<WeeklyDistancePoint>, distanceUnit: DistanceUnit) {
     val unitLabel = if (distanceUnit == DistanceUnit.MILES) "mi" else "km"
-    Text("Weekly Distance ($unitLabel)", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    AppSectionHeader(title = "Weekly Distance ($unitLabel)")
+    AppSectionCard(
+        role = AppCardRole.CONTENT,
+        cornerRadius = 16.dp,
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            if (weeklyDistance.isEmpty()) {
-                Text("No data yet.", style = MaterialTheme.typography.bodyMedium)
-            } else {
-                Canvas(modifier = Modifier.fillMaxWidth().height(150.dp)) {
-                    val maxDist = weeklyDistance.maxOf { it.distanceMeters }.toFloat()
-                    val width = size.width
-                    val height = size.height
+        if (weeklyDistance.isEmpty()) {
+            Text("No data yet.", style = MaterialTheme.typography.bodyMedium)
+        } else {
+            Canvas(modifier = Modifier.fillMaxWidth().height(150.dp)) {
+                val maxDist = weeklyDistance.maxOf { it.distanceMeters }.toFloat()
+                val width = size.width
+                val height = size.height
 
-                    val barWidth = width / (weeklyDistance.size * 2)
+                val barWidth = width / (weeklyDistance.size * 2)
 
-                    weeklyDistance.forEachIndexed { index, point ->
-                        val normalizedY = if (maxDist > 0) (point.distanceMeters / maxDist).toFloat() else 0f
-                        val barHeight = normalizedY * height
+                weeklyDistance.forEachIndexed { index, point ->
+                    val normalizedY = if (maxDist > 0) (point.distanceMeters / maxDist).toFloat() else 0f
+                    val barHeight = normalizedY * height
 
-                        val x = (index * 2 * barWidth) + (barWidth / 2)
-                        val y = height - barHeight
+                    val x = (index * 2 * barWidth) + (barWidth / 2)
+                    val y = height - barHeight
 
-                        drawRect(
-                            color = Color(0xFF1976D2),
-                            topLeft = Offset(x, y),
-                            size = androidx.compose.ui.geometry.Size(barWidth, barHeight)
-                        )
-                    }
+                    drawRect(
+                        color = Color(0xFF1976D2),
+                        topLeft = Offset(x, y),
+                        size = androidx.compose.ui.geometry.Size(barWidth, barHeight),
+                    )
                 }
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    weeklyDistance.forEach {
-                        Text(it.weekLabel.substringAfter(" "), style = MaterialTheme.typography.bodySmall, fontSize = 10.sp)
-                    }
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                weeklyDistance.forEach {
+                    Text(it.weekLabel.substringAfter(" "), style = MaterialTheme.typography.bodySmall, fontSize = 10.sp)
                 }
             }
         }
@@ -397,23 +397,20 @@ private fun WeeklyDistanceSection(weeklyDistance: List<WeeklyDistancePoint>, dis
 
 @Composable
 private fun ProgramProgressSection(programProgress: ProgramProgress) {
-    Text("Program Progress", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    AppSectionHeader(title = "Program Progress")
+    AppSectionCard(
+        role = AppCardRole.CONTENT,
+        cornerRadius = 16.dp,
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text("${programProgress.completedWorkoutsCount} of ${programProgress.totalProgramWorkoutsCount} Workouts Completed", style = MaterialTheme.typography.bodyMedium)
-            Spacer(modifier = Modifier.height(8.dp))
-            LinearProgressIndicator(
-                progress = { programProgress.completionPercentage },
-                modifier = Modifier.fillMaxWidth().height(8.dp),
-                color = MaterialTheme.colorScheme.primary,
-                trackColor = MaterialTheme.colorScheme.surfaceVariant
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text("Current Week: Week ${programProgress.currentWeekNumber}", style = MaterialTheme.typography.bodyMedium)
-        }
+        Text("${programProgress.completedWorkoutsCount} of ${programProgress.totalProgramWorkoutsCount} Workouts Completed", style = MaterialTheme.typography.bodyMedium)
+        Spacer(modifier = Modifier.height(8.dp))
+        LinearProgressIndicator(
+            progress = { programProgress.completionPercentage },
+            modifier = Modifier.fillMaxWidth().height(8.dp),
+            color = MaterialTheme.colorScheme.primary,
+            trackColor = MaterialTheme.colorScheme.surfaceVariant,
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text("Current Week: Week ${programProgress.currentWeekNumber}", style = MaterialTheme.typography.bodyMedium)
     }
 }

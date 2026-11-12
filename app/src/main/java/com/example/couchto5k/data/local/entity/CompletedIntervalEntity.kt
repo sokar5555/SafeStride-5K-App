@@ -25,5 +25,6 @@ data class CompletedIntervalEntity(
     val intervalType: IntervalType,
     val plannedDurationSeconds: Int,
     val actualDurationSeconds: Int,
+    val distanceMeters: Double = 0.0,
     val completed: Boolean,
 )

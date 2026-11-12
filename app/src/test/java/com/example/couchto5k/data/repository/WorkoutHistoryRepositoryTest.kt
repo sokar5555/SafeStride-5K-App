@@ -8,6 +8,7 @@ import com.example.couchto5k.domain.model.IntervalType
 import com.example.couchto5k.domain.model.TrainingWorkout
 import com.example.couchto5k.domain.model.WorkoutInterval
 import com.example.couchto5k.engine.ActiveWorkoutState
+import com.example.couchto5k.engine.WorkoutEngine
 import com.example.couchto5k.engine.WorkoutEngineStatus
 import com.example.couchto5k.location.LocationPoint
 import kotlinx.coroutines.flow.first
@@ -229,5 +230,66 @@ class WorkoutHistoryRepositoryTest {
         assertEquals(10.0, details.routePoints[1].altitude)
         assertEquals(10f, details.routePoints[1].accuracyMeters)
         assertEquals(2000L, details.routePoints[1].timestamp)
+    }
+
+    @Test
+    fun saveWorkout_persistsAndRetrievesPerIntervalDistancesAndFreeRuns() = runTest {
+        val workout = TrainingWorkout(
+            id = 3L,
+            week = 1,
+            workoutNumber = 1,
+            title = "Interval Distance Workout",
+            intervals = listOf(
+                WorkoutInterval(0, IntervalType.WARMUP, 300),
+                WorkoutInterval(1, IntervalType.RUN, 180),
+                WorkoutInterval(2, IntervalType.WALK, 120),
+                WorkoutInterval(3, IntervalType.COOLDOWN, 300),
+            ),
+        )
+
+        val state = ActiveWorkoutState(
+            workoutId = 3L,
+            totalElapsedMillis = 900 * 1000L,
+            distanceMeters = 1850.0,
+            intervalDistancesMeters = mapOf(
+                0 to 450.0,
+                1 to 515.0,
+                2 to 235.0,
+                3 to 650.0,
+            ),
+            startedAt = Instant.now().minusSeconds(900),
+            status = WorkoutEngineStatus.COMPLETED,
+        )
+
+        repository.saveCompletedWorkout(workout, state)
+
+        // Also save a Free Run
+        val freeRunState = ActiveWorkoutState(
+            workoutId = WorkoutEngine.FREE_RUN_WORKOUT_ID,
+            isFreeRun = true,
+            totalElapsedMillis = 1500 * 1000L,
+            distanceMeters = 3218.68,
+            intervalDistancesMeters = mapOf(0 to 3218.68),
+            startedAt = Instant.now(),
+            status = WorkoutEngineStatus.COMPLETED,
+        )
+        repository.saveCompletedWorkout(WorkoutEngine.FREE_RUN_WORKOUT, freeRunState)
+
+        val history = repository.getHistory().first()
+        assertEquals(2, history.size)
+
+        val savedFreeRun = history.first { it.workout.title == "Free Run" }
+        assertEquals("Free Run", savedFreeRun.workout.title)
+        assertEquals(1500, savedFreeRun.workout.durationSeconds)
+        assertEquals(1500, savedFreeRun.workout.runningSeconds)
+        assertEquals(1500, savedFreeRun.workout.longestCompletedRunSeconds)
+        assertEquals(3218.68, savedFreeRun.workout.distanceMeters, 0.01)
+
+        val savedIntervalWorkout = history.first { it.workout.trainingWorkoutId == 3L }
+        assertEquals(4, savedIntervalWorkout.intervals.size)
+        assertEquals(450.0, savedIntervalWorkout.intervals[0].distanceMeters, 0.001)
+        assertEquals(515.0, savedIntervalWorkout.intervals[1].distanceMeters, 0.001)
+        assertEquals(235.0, savedIntervalWorkout.intervals[2].distanceMeters, 0.001)
+        assertEquals(650.0, savedIntervalWorkout.intervals[3].distanceMeters, 0.001)
     }
 }

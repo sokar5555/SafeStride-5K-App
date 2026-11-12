@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -19,7 +18,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Check
@@ -31,8 +30,6 @@ import androidx.compose.material.icons.filled.Vibration
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -40,14 +37,12 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -62,6 +57,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.couchto5k.domain.model.DistanceUnit
+import com.example.couchto5k.ui.components.AppCardRole
+import com.example.couchto5k.ui.components.AppHeaderBanner
+import com.example.couchto5k.ui.components.AppSectionCard
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
@@ -80,33 +78,21 @@ fun SettingsScreen(
     val vibrationEnabled by viewModel.vibrationEnabled.collectAsState()
     val preferredDays by viewModel.preferredWorkoutDays.collectAsState()
     val programStartDate by viewModel.programStartDate.collectAsState()
+    val progressiveWeeks by viewModel.progressiveWeeksExtension.collectAsState()
+    val longRunDay by viewModel.longRunDay.collectAsState()
 
     var showDatePicker by remember { mutableStateOf(value = false) }
     var showResetConfirmDialog by remember { mutableStateOf(value = false) }
     var showResetSuccessBanner by remember { mutableStateOf(value = false) }
 
     val dateFormatter = remember { DateTimeFormatter.ofPattern("EEE, MMM d, yyyy") }
+    val extensionOptions = listOf(0, 4, 8, 12)
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = "Settings",
-                        fontWeight = FontWeight.Bold,
-                    )
-                },
-                navigationIcon = {
-                    IconButton(
-                        onClick = onBack,
-                        modifier = Modifier.defaultMinSize(minWidth = 48.dp, minHeight = 48.dp),
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Navigate back",
-                        )
-                    }
-                },
+            AppHeaderBanner(
+                title = "Settings",
+                onBackClick = onBack,
             )
         },
     ) { innerPadding ->
@@ -119,17 +105,12 @@ fun SettingsScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             AnimatedVisibility(visible = showResetSuccessBanner) {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    ),
-                    shape = RoundedCornerShape(12.dp),
+                AppSectionCard(
+                    role = AppCardRole.SUCCESS,
+                    cornerRadius = 12.dp,
                 ) {
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
+                        modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
@@ -137,7 +118,6 @@ fun SettingsScreen(
                             text = "Program schedule and workout history have been reset.",
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
                             modifier = Modifier.weight(1f),
                         )
                         TextButton(onClick = { showResetSuccessBanner = false }) {
@@ -148,10 +128,11 @@ fun SettingsScreen(
             }
 
             // 1. Distance Units Section
-            SettingsSectionCard(
+            AppSectionCard(
                 title = "Distance Units",
                 icon = Icons.Default.Straighten,
                 iconContentDescription = "Distance units icon",
+                role = AppCardRole.CONTENT,
             ) {
                 Text(
                     text = "Choose how distance and average pace are displayed across workouts and stats.",
@@ -212,16 +193,17 @@ fun SettingsScreen(
             }
 
             // 2. Audio & Haptics Section
-            SettingsSectionCard(
+            AppSectionCard(
                 title = "Audio & Haptic Cues",
                 icon = Icons.AutoMirrored.Filled.VolumeUp,
                 iconContentDescription = "Audio and haptic cues icon",
+                role = AppCardRole.CONTENT,
             ) {
                 SettingsToggleRow(
                     icon = Icons.Default.RecordVoiceOver,
                     iconDescription = "Voice cues",
                     title = "Voice Cues",
-                    subtitle = "Spoken announcements at each run and walk transition",
+                    subtitle = "Spoken announcements at each interval and mile/km split",
                     checked = voiceCuesEnabled,
                     onCheckedChange = viewModel::setVoiceCuesEnabled,
                 )
@@ -230,7 +212,7 @@ fun SettingsScreen(
                     icon = Icons.Default.NotificationsActive,
                     iconDescription = "Sound cues",
                     title = "Sound Cues",
-                    subtitle = "Audible tone alert when switching intervals",
+                    subtitle = "Audible tone alert when switching intervals or completing splits",
                     checked = soundCuesEnabled,
                     onCheckedChange = viewModel::setSoundCuesEnabled,
                 )
@@ -239,17 +221,18 @@ fun SettingsScreen(
                     icon = Icons.Default.Vibration,
                     iconDescription = "Vibration cues",
                     title = "Vibration",
-                    subtitle = "Haptic vibration feedback at interval transitions",
+                    subtitle = "Haptic vibration feedback at interval transitions and splits",
                     checked = vibrationEnabled,
                     onCheckedChange = viewModel::setVibrationEnabled,
                 )
             }
 
             // 3. Schedule Preferences Section
-            SettingsSectionCard(
+            AppSectionCard(
                 title = "Schedule Preferences",
                 icon = Icons.Default.CalendarMonth,
                 iconContentDescription = "Schedule preferences icon",
+                role = AppCardRole.CONTENT,
             ) {
                 Text(
                     text = "Preferred Workout Days (Select 3 days/week)",
@@ -276,7 +259,6 @@ fun SettingsScreen(
                                     if (preferredDays.size < 3) {
                                         preferredDays + day
                                     } else {
-                                        // Replace oldest/first day when already at 3 so user can easily switch days
                                         preferredDays.asSequence().drop(1).toSet() + day
                                     }
                                 }
@@ -341,11 +323,103 @@ fun SettingsScreen(
                 }
             }
 
-            // 4. Reset Program / Clear Data Section
-            SettingsSectionCard(
+            // 4. Progressive Plan Extension (+10% Weekly Volume Beyond 5K)
+            AppSectionCard(
+                title = "Progressive Plan Extension (Beyond 5K)",
+                icon = Icons.AutoMirrored.Filled.TrendingUp,
+                iconContentDescription = "Progressive plan extension icon",
+                role = AppCardRole.CONTENT,
+            ) {
+                Text(
+                    text = "Extend your calendar beyond Week 9 using the +10% weekly running volume rule with a designated Long Run day.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    extensionOptions.forEach { weeks ->
+                        val isSelected = progressiveWeeks == weeks
+                        FilterChip(
+                            selected = isSelected,
+                            onClick = { viewModel.setProgressiveWeeksExtension(weeks) },
+                            label = {
+                                Text(
+                                    text = if (weeks == 0) "Standard 5K (9 Wks)" else "+$weeks Weeks",
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                )
+                            },
+                            leadingIcon = if (isSelected) {
+                                {
+                                    Icon(
+                                        imageVector = Icons.Default.Check,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(FilterChipDefaults.IconSize),
+                                    )
+                                }
+                            } else null,
+                            modifier = Modifier.heightIn(min = 48.dp),
+                        )
+                    }
+                }
+
+                AnimatedVisibility(visible = progressiveWeeks > 0) {
+                    Column(modifier = Modifier.padding(top = 12.dp)) {
+                        Text(
+                            text = "Designated Long Run Day",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        FlowRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            val candidateDays = if (preferredDays.isNotEmpty()) {
+                                preferredDays.sortedBy { it.value }
+                            } else {
+                                listOf(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY)
+                            }
+                            candidateDays.forEach { day ->
+                                val isSelected = longRunDay == day
+                                val shortLabel = day.name.take(3).lowercase().replaceFirstChar { it.uppercase() }
+                                FilterChip(
+                                    selected = isSelected,
+                                    onClick = { viewModel.setLongRunDay(day) },
+                                    label = {
+                                        Text(
+                                            text = shortLabel,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                        )
+                                    },
+                                    leadingIcon = if (isSelected) {
+                                        {
+                                            Icon(
+                                                imageVector = Icons.Default.Check,
+                                                contentDescription = "$shortLabel long run day",
+                                                modifier = Modifier.size(FilterChipDefaults.IconSize),
+                                            )
+                                        }
+                                    } else null,
+                                    modifier = Modifier.heightIn(min = 48.dp),
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 5. Reset Program / Clear Data Section
+            AppSectionCard(
                 title = "Reset Program & Data",
                 icon = Icons.Default.DeleteForever,
                 iconContentDescription = "Reset program data icon",
+                role = AppCardRole.CONTENT,
             ) {
                 Text(
                     text = "Clear all completed workout history and reset your training schedule back to Week 1, Workout 1 starting today.",
@@ -441,45 +515,6 @@ fun SettingsScreen(
                 }
             },
         )
-    }
-}
-
-@Composable
-private fun SettingsSectionCard(
-    title: String,
-    icon: ImageVector,
-    iconContentDescription: String,
-    content: @Composable () -> Unit,
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-        ),
-        shape = RoundedCornerShape(16.dp),
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = iconContentDescription,
-                    tint = MaterialTheme.colorScheme.primary,
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-            }
-            Spacer(modifier = Modifier.height(12.dp))
-            content()
-        }
     }
 }
 

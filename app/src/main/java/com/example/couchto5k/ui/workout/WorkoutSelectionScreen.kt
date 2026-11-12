@@ -31,6 +31,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.couchto5k.domain.model.TrainingWorkout
+import com.example.couchto5k.ui.components.AppHeaderBanner
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -45,18 +46,9 @@ fun WorkoutSelectionScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Couch to 5K Program", fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    onBack?.let { backAction ->
-                        IconButton(onClick = backAction) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Back",
-                            )
-                        }
-                    }
-                },
+            AppHeaderBanner(
+                title = "Couch to 5K Program",
+                onBackClick = onBack,
             )
         },
     ) { innerPadding ->

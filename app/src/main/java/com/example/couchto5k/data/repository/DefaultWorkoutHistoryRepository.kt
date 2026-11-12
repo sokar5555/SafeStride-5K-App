@@ -49,70 +49,97 @@ class DefaultWorkoutHistoryRepository @Inject constructor(
         state: ActiveWorkoutState,
     ) {
         val totalElapsedSeconds = (state.totalElapsedMillis / 1000).toInt()
+        val isFreeRun = state.isFreeRun || workout.id == 0L || workout.title.equals("Free Run", ignoreCase = true)
 
-        // Calculate actual interval durations and completion status
-        var accumulatedTime = 0
         val completedIntervals = mutableListOf<CompletedIntervalEntity>()
         var longestRunSeconds = 0
         var currentContinuousRunSeconds = 0
         var runningSeconds = 0
         var walkingSeconds = 0
 
-        for ((_, type, durationSeconds) in workout.intervals) {
-            val remainingTimeInWorkout = totalElapsedSeconds - accumulatedTime
-            val isCooldownCompleted = (state.status == WorkoutEngineStatus.COMPLETED) && (type == IntervalType.COOLDOWN)
-
-            val actualDuration = if (isCooldownCompleted) {
-                durationSeconds
-            } else if (accumulatedTime >= totalElapsedSeconds) {
-                0
-            } else {
-                min(durationSeconds, maxOf(0, remainingTimeInWorkout))
-            }
-
-            val isCompleted = actualDuration >= durationSeconds
-
+        if (isFreeRun) {
+            runningSeconds = totalElapsedSeconds
+            longestRunSeconds = totalElapsedSeconds
+            val freeRunIntervalDistance = state.intervalDistancesMeters[0] ?: state.distanceMeters
             completedIntervals.add(
                 CompletedIntervalEntity(
-                    completedWorkoutId = 0, // Assigned later
-                    sequence = completedIntervals.size,
-                    intervalType = type,
-                    plannedDurationSeconds = durationSeconds,
-                    actualDurationSeconds = actualDuration,
-                    completed = isCompleted,
+                    completedWorkoutId = 0,
+                    sequence = 0,
+                    intervalType = IntervalType.RUN,
+                    plannedDurationSeconds = totalElapsedSeconds,
+                    actualDurationSeconds = totalElapsedSeconds,
+                    distanceMeters = freeRunIntervalDistance,
+                    completed = state.status == WorkoutEngineStatus.COMPLETED,
                 ),
             )
+        } else {
+            // Calculate actual interval durations and completion status
+            var accumulatedTime = 0
 
-            if (type == IntervalType.RUN) {
-                runningSeconds += actualDuration
-                currentContinuousRunSeconds += actualDuration
-                if (currentContinuousRunSeconds > longestRunSeconds) {
-                    longestRunSeconds = currentContinuousRunSeconds
+            for ((index, interval) in workout.intervals.withIndex()) {
+                val (_, type, durationSeconds) = interval
+                val remainingTimeInWorkout = totalElapsedSeconds - accumulatedTime
+                val isCooldownCompleted = (state.status == WorkoutEngineStatus.COMPLETED) && (type == IntervalType.COOLDOWN)
+
+                val actualDuration = if (isCooldownCompleted) {
+                    durationSeconds
+                } else if (accumulatedTime >= totalElapsedSeconds) {
+                    0
+                } else {
+                    min(durationSeconds, maxOf(0, remainingTimeInWorkout))
                 }
-                if (!isCompleted) {
-                    currentContinuousRunSeconds = 0 // Break streak if not fully completed
+
+                val isCompleted = actualDuration >= durationSeconds
+                val actualDistanceMeters = state.intervalDistancesMeters[index] ?: 0.0
+
+                completedIntervals.add(
+                    CompletedIntervalEntity(
+                        completedWorkoutId = 0, // Assigned later
+                        sequence = completedIntervals.size,
+                        intervalType = type,
+                        plannedDurationSeconds = durationSeconds,
+                        actualDurationSeconds = actualDuration,
+                        distanceMeters = actualDistanceMeters,
+                        completed = isCompleted,
+                    ),
+                )
+
+                if (type == IntervalType.RUN) {
+                    runningSeconds += actualDuration
+                    currentContinuousRunSeconds += actualDuration
+                    if (currentContinuousRunSeconds > longestRunSeconds) {
+                        longestRunSeconds = currentContinuousRunSeconds
+                    }
+                    if (!isCompleted) {
+                        currentContinuousRunSeconds = 0 // Break streak if not fully completed
+                    }
+                } else {
+                    currentContinuousRunSeconds = 0
+                    walkingSeconds += actualDuration
                 }
-            } else {
-                currentContinuousRunSeconds = 0
-                walkingSeconds += actualDuration
+
+                accumulatedTime += durationSeconds
             }
-
-            accumulatedTime += durationSeconds
         }
 
         val totalWorkoutDurationSeconds = maxOf(totalElapsedSeconds, completedIntervals.sumOf { it.actualDurationSeconds })
+        val averagePaceSecondsPerKm = if (state.distanceMeters > 0.001 && totalWorkoutDurationSeconds > 0) {
+            totalWorkoutDurationSeconds / (state.distanceMeters / 1000.0)
+        } else {
+            0.0
+        }
 
         val entity = CompletedWorkoutEntity(
-            trainingWorkoutId = workout.id,
+            trainingWorkoutId = if (isFreeRun) 0L else workout.id,
             scheduledWorkoutId = null,
-            title = workout.title,
+            title = if (isFreeRun) "Free Run" else workout.title,
             startedAt = state.startedAt,
             completedAt = Instant.now(),
             durationSeconds = totalWorkoutDurationSeconds,
             runningSeconds = runningSeconds,
             walkingSeconds = walkingSeconds,
             distanceMeters = state.distanceMeters,
-            averagePaceSecondsPerKm = 0.0,
+            averagePaceSecondsPerKm = averagePaceSecondsPerKm,
             longestCompletedRunSeconds = longestRunSeconds,
             status = state.status,
         )
@@ -172,6 +199,7 @@ fun WorkoutWithIntervals.toDomainModel(): CompletedWorkoutDetails {
             intervalType = it.intervalType,
             plannedDurationSeconds = it.plannedDurationSeconds,
             actualDurationSeconds = it.actualDurationSeconds,
+            distanceMeters = it.distanceMeters,
             completed = it.completed,
         )
     }

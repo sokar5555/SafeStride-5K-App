@@ -76,4 +76,45 @@ class GenerateScheduleUseCaseTest {
         assertEquals(27, updatedSchedule.size)
         assertEquals(newStartDate, updatedSchedule.first().scheduledDate)
     }
+
+    @Test
+    fun generateSchedule_extendsBeyond5KWith10PercentWeeklyVolumeAndDesignatedLongRunDay() = runTest {
+        val startDate = LocalDate.of(2025, 3, 3) // Monday
+        val preferredDays = setOf(DayOfWeek.TUESDAY, DayOfWeek.THURSDAY, DayOfWeek.SUNDAY)
+        val progressiveWeeks = 4
+
+        useCase(
+            startDate = startDate,
+            preferredDays = preferredDays,
+            progressiveWeeksExtension = progressiveWeeks,
+            longRunDay = DayOfWeek.SUNDAY,
+        )
+
+        val scheduledWorkouts = scheduledWorkoutDao.getAllScheduledWorkouts().first()
+
+        // 9 standard weeks (27 workouts) + 4 progressive weeks (12 workouts) = 39 workouts
+        assertEquals(39, scheduledWorkouts.size)
+
+        // Verify progressive volume +10% rule in generated progressive workouts
+        val progressiveWorkouts = DefaultTrainingPlanRepository.generateProgressiveWeeks(4)
+        assertEquals(12, progressiveWorkouts.size)
+
+        val week9RunningSeconds = 3 * 30 * 60 // 5400s (90 min)
+        val week10RunningSeconds = progressiveWorkouts.filter { it.week == 10 }.sumOf { it.totalPlannedRunningSeconds }
+        val week11RunningSeconds = progressiveWorkouts.filter { it.week == 11 }.sumOf { it.totalPlannedRunningSeconds }
+
+        assertTrue("Week 10 volume must exceed Week 9 volume", week10RunningSeconds > week9RunningSeconds)
+        assertTrue("Week 11 volume must exceed Week 10 volume by ~10%", week11RunningSeconds > week10RunningSeconds)
+
+        // Verify Long Run (Workout 3 of each progressive week) is placed on the designated Long Run day (SUNDAY)
+        val progressiveScheduled = scheduledWorkouts.drop(27)
+        progressiveScheduled.forEach { entity ->
+            val workout = trainingPlanRepository.getWorkoutById(entity.trainingWorkoutId)
+            requireNotNull(workout)
+            if (workout.workoutNumber == 3) {
+                assertEquals(DayOfWeek.SUNDAY, entity.scheduledDate.dayOfWeek)
+                assertTrue(workout.title.contains("Long Run"))
+            }
+        }
+    }
 }

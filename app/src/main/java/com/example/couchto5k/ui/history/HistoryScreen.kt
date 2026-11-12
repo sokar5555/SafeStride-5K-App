@@ -1,6 +1,5 @@
 package com.example.couchto5k.ui.history
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -17,6 +16,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.couchto5k.domain.model.CompletedWorkoutDetails
 import com.example.couchto5k.domain.model.DistanceUnit
 import com.example.couchto5k.engine.WorkoutEngineStatus
+import com.example.couchto5k.ui.components.AppCardRole
+import com.example.couchto5k.ui.components.AppHeaderBanner
+import com.example.couchto5k.ui.components.AppSectionCard
 import com.example.couchto5k.ui.utils.formatDistance
 import com.example.couchto5k.ui.utils.formatDuration
 import com.example.couchto5k.ui.utils.formatPace
@@ -39,8 +41,8 @@ fun HistoryScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Workout History") },
+            AppHeaderBanner(
+                title = "Workout History",
                 actions = {
                     if (history.isNotEmpty()) {
                         IconButton(onClick = { showClearAllDialog = true }) {
@@ -60,20 +62,16 @@ fun HistoryScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .padding(24.dp),
+                    .padding(16.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = MaterialTheme.shapes.large,
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                    ),
+                AppSectionCard(
+                    role = AppCardRole.CONTENT,
+                    cornerRadius = 16.dp,
+                    contentPadding = PaddingValues(24.dp),
                 ) {
                     Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(24.dp),
+                        modifier = Modifier.fillMaxWidth(),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
@@ -174,16 +172,12 @@ fun WorkoutHistoryCard(
         else -> MaterialTheme.colorScheme.error
     }
 
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-        ),
+    AppSectionCard(
+        role = AppCardRole.CONTENT,
+        cornerRadius = 16.dp,
+        onClick = onClick,
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Row(

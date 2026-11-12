@@ -5,8 +5,8 @@ import android.view.View
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.*
@@ -20,7 +20,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.couchto5k.domain.model.CompletedInterval
+import com.example.couchto5k.domain.model.DistanceUnit
 import com.example.couchto5k.location.LocationPoint
+import com.example.couchto5k.ui.components.AppCardRole
+import com.example.couchto5k.ui.components.AppHeaderBanner
+import com.example.couchto5k.ui.components.AppSectionCard
+import com.example.couchto5k.ui.components.AppSectionHeader
 import com.example.couchto5k.ui.utils.formatDistance
 import com.example.couchto5k.ui.utils.formatDuration
 import com.example.couchto5k.ui.utils.formatPace
@@ -44,13 +49,9 @@ fun WorkoutDetailScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(details?.workout?.title ?: "Workout Detail") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
+            AppHeaderBanner(
+                title = details?.workout?.title ?: "Workout Detail",
+                onBackClick = onBack,
             )
         },
     ) { padding ->
@@ -133,11 +134,14 @@ fun WorkoutDetailScreen(
                 }
 
                 item {
-                    Text("Interval Breakdown", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    AppSectionHeader(
+                        title = "Interval Breakdown",
+                        showDivider = true,
+                    )
                 }
 
                 items(intervals) { interval ->
-                    IntervalDetailItem(interval)
+                    IntervalDetailItem(interval = interval, distanceUnit = distanceUnit)
                 }
             }
         }
@@ -147,11 +151,10 @@ fun WorkoutDetailScreen(
 @Composable
 fun RouteMapCard(routePoints: List<LocationPoint>) {
     if (routePoints.isEmpty()) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(200.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        AppSectionCard(
+            role = AppCardRole.CONTENT,
+            cornerRadius = 16.dp,
+            modifier = Modifier.height(200.dp),
         ) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text("No GPS route recorded for this workout", style = MaterialTheme.typography.titleMedium)
@@ -163,11 +166,10 @@ fun RouteMapCard(routePoints: List<LocationPoint>) {
     var mapError by remember { mutableStateOf(value = false) }
 
     if (mapError) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(200.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        AppSectionCard(
+            role = AppCardRole.CONTENT,
+            cornerRadius = 16.dp,
+            modifier = Modifier.height(200.dp),
         ) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -184,6 +186,7 @@ fun RouteMapCard(routePoints: List<LocationPoint>) {
             modifier = Modifier
                 .fillMaxWidth()
                 .height(300.dp),
+            shape = RoundedCornerShape(16.dp),
         ) {
             AndroidView(
                 modifier = Modifier.fillMaxSize(),
@@ -250,44 +253,59 @@ fun RouteMapCard(routePoints: List<LocationPoint>) {
 fun MetricCard(modifier: Modifier = Modifier, label: String, value: String) {
     Card(
         modifier = modifier,
+        shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Text(text = label, style = MaterialTheme.typography.labelMedium)
-            Text(text = value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(text = label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
+            Text(text = value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
         }
     }
 }
 
 @Composable
-fun IntervalDetailItem(interval: CompletedInterval) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column {
-            Text(
-                text = "${interval.sequence + 1}. ${interval.intervalType.name}",
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Bold,
-            )
-            Text(
-                text = "Planned: ${formatDuration(interval.plannedDurationSeconds)} | Actual: ${formatDuration(interval.actualDurationSeconds)}",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
+fun IntervalDetailItem(
+    interval: CompletedInterval,
+    distanceUnit: DistanceUnit = DistanceUnit.MILES,
+) {
+    val typeDisplayName = interval.intervalType.name.lowercase().replaceFirstChar { it.uppercase() }
+    val formattedActualDuration = formatDuration(interval.actualDurationSeconds)
+    val formattedPlannedDuration = formatDuration(interval.plannedDurationSeconds)
+    val formattedIntervalDistance = formatDistance(interval.distanceMeters, distanceUnit)
 
-        if (interval.completed) {
-            Icon(imageVector = Icons.Default.CheckCircle, contentDescription = "Completed", tint = Color(0xFF4CAF50))
-        } else {
-            Icon(imageVector = Icons.Default.Cancel, contentDescription = "Incomplete", tint = MaterialTheme.colorScheme.error)
+    AppSectionCard(
+        role = AppCardRole.CONTENT,
+        cornerRadius = 12.dp,
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "${interval.sequence + 1}. $typeDisplayName: $formattedActualDuration | $formattedIntervalDistance",
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    text = "Planned: $formattedPlannedDuration | Actual: $formattedActualDuration",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            if (interval.completed) {
+                Icon(imageVector = Icons.Default.CheckCircle, contentDescription = "Completed", tint = Color(0xFF4CAF50))
+            } else {
+                Icon(imageVector = Icons.Default.Cancel, contentDescription = "Incomplete", tint = MaterialTheme.colorScheme.error)
+            }
         }
     }
 }

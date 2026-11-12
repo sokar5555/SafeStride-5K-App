@@ -125,10 +125,14 @@ class ActiveWorkoutViewModel @Inject constructor(
 
     private fun loadAndStartWorkout() {
         viewModelScope.launch {
-            val workout = repository.getWorkoutById(workoutId)
+            val workout = if (workoutId == WorkoutEngine.FREE_RUN_WORKOUT_ID) {
+                WorkoutEngine.FREE_RUN_WORKOUT
+            } else {
+                repository.getWorkoutById(workoutId)
+            }
             if (workout != null) {
                 _currentWorkout.value = workout
-                workoutEngine.start(workout)
+                workoutEngine.start(workout, isFreeRun = workout.id == WorkoutEngine.FREE_RUN_WORKOUT_ID)
 
                 val startIntent = Intent(application, WorkoutTrackingService::class.java).apply {
                     action = WorkoutTrackingService.ACTION_START
@@ -149,6 +153,7 @@ class ActiveWorkoutViewModel @Inject constructor(
     fun resume() = sendServiceCommand(WorkoutTrackingService.ACTION_RESUME)
     fun skipNext() = workoutEngine.skipToNextInterval()
     fun skipPrevious() = workoutEngine.previousInterval()
+    fun completeFreeRun() = workoutEngine.completeFreeRun()
     fun stop() = sendServiceCommand(WorkoutTrackingService.ACTION_STOP)
 
     override fun onCleared() {

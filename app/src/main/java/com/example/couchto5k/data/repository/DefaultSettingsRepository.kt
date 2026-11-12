@@ -4,6 +4,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
@@ -28,6 +29,8 @@ class DefaultSettingsRepository @Inject constructor(
     private val soundCuesKey = booleanPreferencesKey("sound_cues_enabled")
     private val vibrationKey = booleanPreferencesKey("vibration_enabled")
     private val onboardingCompleteKey = booleanPreferencesKey("onboarding_complete")
+    private val progressiveWeeksKey = intPreferencesKey("progressive_weeks_extension")
+    private val longRunDayKey = stringPreferencesKey("long_run_day")
 
     override val programStartDate: Flow<LocalDate?> = dataStore.data.map { preferences ->
         preferences[startDateKey]?.let { LocalDate.ofEpochDay(it) }
@@ -60,6 +63,14 @@ class DefaultSettingsRepository @Inject constructor(
 
     override val onboardingComplete: Flow<Boolean> = dataStore.data.map { preferences ->
         preferences[onboardingCompleteKey] ?: false
+    }
+
+    override val progressiveWeeksExtension: Flow<Int> = dataStore.data.map { preferences ->
+        preferences[progressiveWeeksKey] ?: 0
+    }
+
+    override val longRunDay: Flow<DayOfWeek> = dataStore.data.map { preferences ->
+        preferences[longRunDayKey]?.let { DayOfWeek.valueOf(it) } ?: DayOfWeek.SATURDAY
     }
 
     override suspend fun setProgramStartDate(date: LocalDate) {
@@ -101,6 +112,18 @@ class DefaultSettingsRepository @Inject constructor(
     override suspend fun setOnboardingComplete(complete: Boolean) {
         dataStore.edit { preferences ->
             preferences[onboardingCompleteKey] = complete
+        }
+    }
+
+    override suspend fun setProgressiveWeeksExtension(weeks: Int) {
+        dataStore.edit { preferences ->
+            preferences[progressiveWeeksKey] = weeks.coerceAtLeast(0)
+        }
+    }
+
+    override suspend fun setLongRunDay(day: DayOfWeek) {
+        dataStore.edit { preferences ->
+            preferences[longRunDayKey] = day.name
         }
     }
 }

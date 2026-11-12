@@ -6,15 +6,19 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material3.*
 import androidx.compose.material.icons.filled.FilterListOff
 import androidx.compose.material.icons.filled.FitnessCenter
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -27,6 +31,9 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.couchto5k.domain.model.ScheduledWorkout
 import com.example.couchto5k.domain.model.WorkoutStatus
+import com.example.couchto5k.ui.components.AppCardRole
+import com.example.couchto5k.ui.components.AppHeaderBanner
+import com.example.couchto5k.ui.components.AppSectionCard
 import com.example.couchto5k.ui.utils.squishyOverscroll
 import java.time.DayOfWeek
 import java.time.Instant
@@ -45,29 +52,21 @@ fun CalendarScreen(
     val schedule by viewModel.schedule.collectAsState()
     val startDate by viewModel.programStartDate.collectAsState()
     val preferredDays by viewModel.preferredWorkoutDays.collectAsState()
+    val progressiveWeeks by viewModel.progressiveWeeksExtension.collectAsState()
+    val longRunDay by viewModel.longRunDay.collectAsState()
+    val displayedMonth by viewModel.displayedMonth.collectAsState()
 
     var showSettingsDialog by remember { mutableStateOf(value = false) }
-    var displayedMonth by remember { mutableStateOf(YearMonth.now()) }
     var selectedDate by remember { mutableStateOf<LocalDate?>(null) }
 
     LaunchedEffect(Unit) {
         viewModel.initializeStartDateIfNotSet()
     }
 
-    LaunchedEffect(startDate) {
-        startDate?.let {
-            displayedMonth = YearMonth.from(it)
-        }
-    }
-
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Training Calendar") },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                ),
+            AppHeaderBanner(
+                title = "Training Calendar",
                 actions = {
                     IconButton(onClick = { showSettingsDialog = true }) {
                         Icon(Icons.Filled.Edit, contentDescription = "Edit Schedule Settings")
@@ -89,35 +88,32 @@ fun CalendarScreen(
                 .padding(padding)
                 .padding(horizontal = 16.dp)
                 .squishyOverscroll(),
-            contentPadding = PaddingValues(vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            contentPadding = PaddingValues(vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             // 1. Settings Summary Card
             item {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { showSettingsDialog = true },
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                    ),
+                AppSectionCard(
+                    role = AppCardRole.CONTENT,
+                    cornerRadius = 12.dp,
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                    onClick = { showSettingsDialog = true },
                 ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                    ) {
-                        Text(
-                            text = "Start: ${startDate?.format(DateTimeFormatter.ofPattern("MMM d, yyyy")) ?: "Not set"}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Bold,
-                        )
-                        Text(
-                            text = "Days: ${preferredDays.joinToString { it.name.take(3).lowercase().replaceFirstChar { c -> c.uppercase() } }}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
+                    Text(
+                        text = "Start: ${startDate?.format(DateTimeFormatter.ofPattern("MMM d, yyyy")) ?: "Not set"}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        text = buildString {
+                            append("Days: ${preferredDays.joinToString { it.name.take(3).lowercase().replaceFirstChar { c -> c.uppercase() } }}")
+                            if (progressiveWeeks > 0) {
+                                append(" • +$progressiveWeeks wks (+10% vol) • Long Run: ${longRunDay.name.take(3).lowercase().replaceFirstChar { c -> c.uppercase() }}")
+                            }
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
 
@@ -127,7 +123,7 @@ fun CalendarScreen(
                     displayedMonth = displayedMonth,
                     selectedDate = selectedDate,
                     scheduledWorkouts = schedule,
-                    onMonthChange = { displayedMonth = it },
+                    onMonthChange = { viewModel.setDisplayedMonth(it) },
                     onDateSelected = { date ->
                         selectedDate = if (selectedDate == date) null else date
                     },
@@ -141,19 +137,19 @@ fun CalendarScreen(
                         .fillMaxWidth()
                         .padding(top = 4.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     if (selectedDate != null) {
                         Text(
                             text = "Date: ${selectedDate?.format(DateTimeFormatter.ofPattern("EEE, MMM d, yyyy"))}",
                             style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
                         )
                         TextButton(onClick = { selectedDate = null }) {
                             Icon(
                                 imageVector = Icons.Default.FilterListOff,
                                 contentDescription = "Show All",
-                                modifier = Modifier.size(16.dp)
+                                modifier = Modifier.size(16.dp),
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text("Show All")
@@ -162,7 +158,7 @@ fun CalendarScreen(
                         Text(
                             text = "Scheduled Workouts",
                             style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
                         )
                     }
                 }
@@ -175,7 +171,7 @@ fun CalendarScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(150.dp),
-                        contentAlignment = Alignment.Center
+                        contentAlignment = Alignment.Center,
                     ) {
                         CircularProgressIndicator()
                     }
@@ -188,7 +184,7 @@ fun CalendarScreen(
                 items(filteredList, key = { it.id }) { workout ->
                     ScheduledWorkoutItem(
                         workout = workout,
-                        onClick = { onWorkoutClick(workout.trainingWorkoutId) }
+                        onClick = { onWorkoutClick(workout.trainingWorkoutId) },
                     )
                 }
             }
@@ -199,11 +195,18 @@ fun CalendarScreen(
         ScheduleSettingsDialog(
             currentStartDate = startDate ?: LocalDate.now(),
             currentDays = preferredDays,
+            currentProgressiveWeeks = progressiveWeeks,
+            currentLongRunDay = longRunDay,
             onDismiss = { showSettingsDialog = false },
-            onSave = { newStartDate, newDays ->
-                viewModel.updateScheduleSettings(newStartDate, newDays)
+            onSave = { newStartDate, newDays, newProgressiveWeeks, newLongRunDay ->
+                viewModel.updateScheduleSettings(
+                    startDate = newStartDate,
+                    days = newDays,
+                    progressiveWeeks = newProgressiveWeeks,
+                    designatedLongRunDay = newLongRunDay,
+                )
                 showSettingsDialog = false
-            }
+            },
         )
     }
 }
@@ -223,92 +226,91 @@ fun MonthCalendarCard(
     val monthFormatter = DateTimeFormatter.ofPattern("MMMM yyyy")
     val today = LocalDate.now()
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    AppSectionCard(
+        role = AppCardRole.SURFACE,
+        cornerRadius = 16.dp,
+        contentPadding = PaddingValues(12.dp),
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            // Month Header Navigation Controls
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(onClick = { onMonthChange(displayedMonth.minusMonths(1)) }) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-                        contentDescription = "Previous Month"
-                    )
-                }
-                Text(
-                    text = displayedMonth.format(monthFormatter),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+        // Month Header Navigation Controls
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            IconButton(onClick = { onMonthChange(displayedMonth.minusMonths(1)) }) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                    contentDescription = "Previous Month",
                 )
-                IconButton(onClick = { onMonthChange(displayedMonth.plusMonths(1)) }) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                        contentDescription = "Next Month"
-                    )
-                }
             }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Day of Week Header Row (Sun .. Sat)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceAround
-            ) {
-                val daysOfWeek = listOf("S", "M", "T", "W", "T", "F", "S")
-                daysOfWeek.forEach { dayLabel ->
-                    Text(
-                        text = dayLabel,
-                        style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.width(32.dp)
-                    )
-                }
+            Text(
+                text = displayedMonth.format(monthFormatter),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+            )
+            IconButton(onClick = { onMonthChange(displayedMonth.plusMonths(1)) }) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = "Next Month",
+                )
             }
+        }
 
-            Spacer(modifier = Modifier.height(6.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
-            // Month Grid Calculations
-            val firstDayOfMonth = displayedMonth.atDay(1)
-            val daysInMonth = displayedMonth.lengthOfMonth()
-            val startDayOfWeekOffset = firstDayOfMonth.dayOfWeek.value % 7 // Sun=0, Mon=1... Sat=6
+        // Day of Week Header Row (Sun .. Sat)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceAround,
+        ) {
+            val daysOfWeek = listOf("S", "M", "T", "W", "T", "F", "S")
+            daysOfWeek.forEach { dayLabel ->
+                Text(
+                    text = dayLabel,
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.width(32.dp),
+                )
+            }
+        }
 
-            val totalGridCells = startDayOfWeekOffset + daysInMonth
-            val totalRows = (totalGridCells + 6) / 7
+        Spacer(modifier = Modifier.height(6.dp))
 
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                for (rowIndex in 0 until totalRows) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceAround
-                    ) {
-                        for (colIndex in 0 until 7) {
-                            val cellIndex = (rowIndex * 7) + colIndex
-                            val dayNumber = (cellIndex - startDayOfWeekOffset) + 1
+        // Month Grid Calculations
+        val firstDayOfMonth = displayedMonth.atDay(1)
+        val daysInMonth = displayedMonth.lengthOfMonth()
+        val startDayOfWeekOffset = firstDayOfMonth.dayOfWeek.value % 7 // Sun=0, Mon=1... Sat=6
 
-                            if (dayNumber in 1..daysInMonth) {
-                                val date = displayedMonth.atDay(dayNumber)
-                                val workout = workoutMap[date]
-                                val isSelected = date == selectedDate
-                                val isToday = date == today
+        val totalGridCells = startDayOfWeekOffset + daysInMonth
+        val totalRows = (totalGridCells + 6) / 7
 
-                                MonthDayCell(
-                                    date = date,
-                                    isSelected = isSelected,
-                                    isToday = isToday,
-                                    workout = workout,
-                                    onClick = { onDateSelected(date) }
-                                )
-                            } else {
-                                Spacer(modifier = Modifier.width(32.dp))
-                            }
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            for (rowIndex in 0 until totalRows) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceAround,
+                ) {
+                    for (colIndex in 0 until 7) {
+                        val cellIndex = (rowIndex * 7) + colIndex
+                        val dayNumber = (cellIndex - startDayOfWeekOffset) + 1
+
+                        if (dayNumber in 1..daysInMonth) {
+                            val date = displayedMonth.atDay(dayNumber)
+                            val workout = workoutMap[date]
+                            val isSelected = date == selectedDate
+                            val isToday = date == today
+
+                            MonthDayCell(
+                                date = date,
+                                isSelected = isSelected,
+                                isToday = isToday,
+                                workout = workout,
+                                onClick = { onDateSelected(date) },
+                            )
+                        } else {
+                            Spacer(modifier = Modifier.width(32.dp))
                         }
                     }
                 }
@@ -355,17 +357,17 @@ fun MonthDayCell(
             .then(
                 if (isToday && !isSelected) {
                     Modifier.border(1.dp, MaterialTheme.colorScheme.primary, CircleShape)
-                } else Modifier
+                } else Modifier,
             )
             .clickable(onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        verticalArrangement = Arrangement.Center,
     ) {
         Text(
             text = date.dayOfMonth.toString(),
             fontSize = 12.sp,
             fontWeight = if (isToday || isSelected) FontWeight.Bold else FontWeight.Normal,
-            color = textColor
+            color = textColor,
         )
 
         // Status Indicator Dot below day number
@@ -375,7 +377,7 @@ fun MonthDayCell(
                 modifier = Modifier
                     .size(5.dp)
                     .clip(CircleShape)
-                    .background(if (isSelected) MaterialTheme.colorScheme.onPrimary else statusColor)
+                    .background(if (isSelected) MaterialTheme.colorScheme.onPrimary else statusColor),
             )
         } else {
             Spacer(modifier = Modifier.height(7.dp))
@@ -386,73 +388,78 @@ fun MonthDayCell(
 @Composable
 fun RestDayCard(date: LocalDate) {
     val formatter = DateTimeFormatter.ofPattern("EEEE, MMMM d, yyyy")
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    AppSectionCard(
+        role = AppCardRole.CONTENT,
+        cornerRadius = 16.dp,
+        contentPadding = PaddingValues(24.dp),
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Icon(
                 imageVector = Icons.Default.FitnessCenter,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(36.dp)
+                modifier = Modifier.size(36.dp),
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = "Rest & Recovery Day",
                 style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = "No workout scheduled for ${date.format(formatter)}. Rest is essential for muscle recovery!",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center
+                textAlign = TextAlign.Center,
             )
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun ScheduleSettingsDialog(
     currentStartDate: LocalDate,
     currentDays: Set<DayOfWeek>,
+    currentProgressiveWeeks: Int = 0,
+    currentLongRunDay: DayOfWeek = DayOfWeek.SATURDAY,
     onDismiss: () -> Unit,
-    onSave: (LocalDate, Set<DayOfWeek>) -> Unit
+    onSave: (LocalDate, Set<DayOfWeek>, Int, DayOfWeek) -> Unit,
 ) {
     var selectedStartDate by remember { mutableStateOf(currentStartDate) }
     var selectedDays by remember { mutableStateOf(currentDays) }
+    var selectedProgressiveWeeks by remember { mutableIntStateOf(currentProgressiveWeeks) }
+    var selectedLongRunDay by remember { mutableStateOf(currentLongRunDay) }
     var showDatePicker by remember { mutableStateOf(value = false) }
 
     val allDays = DayOfWeek.entries
     val dateFormatter = DateTimeFormatter.ofPattern("EEE, MMM d, yyyy")
+    val extensionOptions = listOf(0, 4, 8, 12)
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Schedule Settings") },
+        title = { Text("Schedule & Plan Settings") },
         text = {
-            Column {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 Text(
                     text = "Program Start Date",
                     style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 OutlinedButton(
                     onClick = { showDatePicker = true },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
                 ) {
                     Icon(
                         imageVector = Icons.Default.CalendarMonth,
                         contentDescription = "Select Start Date",
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier.size(18.dp),
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(selectedStartDate.format(dateFormatter))
@@ -461,9 +468,9 @@ fun ScheduleSettingsDialog(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 Text(
-                    text = "Preferred Workout Days",
+                    text = "Preferred Workout Days (3 days/week)",
                     style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 allDays.forEach { day ->
@@ -482,7 +489,7 @@ fun ScheduleSettingsDialog(
                                     }
                                 }
                             }
-                            .padding(vertical = 4.dp),
+                            .padding(vertical = 2.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Checkbox(
@@ -506,17 +513,95 @@ fun ScheduleSettingsDialog(
                 if (selectedDays.size != 3) {
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        "Please select exactly 3 days for Couch to 5K.",
+                        "Please select exactly 3 days for your training schedule.",
                         color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodySmall
+                        style = MaterialTheme.typography.bodySmall,
                     )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Text(
+                    text = "Progressive Extension Beyond 5K (+10% Weekly Vol)",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    extensionOptions.forEach { weeks ->
+                        val isSelected = selectedProgressiveWeeks == weeks
+                        FilterChip(
+                            selected = isSelected,
+                            onClick = { selectedProgressiveWeeks = weeks },
+                            label = {
+                                Text(if (weeks == 0) "5K Only" else "+$weeks Weeks")
+                            },
+                            leadingIcon = if (isSelected) {
+                                {
+                                    Icon(
+                                        imageVector = Icons.Default.Check,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(FilterChipDefaults.IconSize),
+                                    )
+                                }
+                            } else null,
+                        )
+                    }
+                }
+
+                if (selectedProgressiveWeeks > 0) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = "Designated Long Run Day",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        val candidateDays = if (selectedDays.isNotEmpty()) {
+                            selectedDays.sortedBy { it.value }
+                        } else {
+                            listOf(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY)
+                        }
+                        candidateDays.forEach { day ->
+                            val isSelected = selectedLongRunDay == day
+                            val shortName = day.name.take(3).lowercase().replaceFirstChar { it.uppercase() }
+                            FilterChip(
+                                selected = isSelected,
+                                onClick = { selectedLongRunDay = day },
+                                label = { Text(shortName) },
+                                leadingIcon = if (isSelected) {
+                                    {
+                                        Icon(
+                                            imageVector = Icons.Default.Check,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(FilterChipDefaults.IconSize),
+                                        )
+                                    }
+                                } else null,
+                            )
+                        }
+                    }
                 }
             }
         },
         confirmButton = {
             TextButton(
-                onClick = { onSave(selectedStartDate, selectedDays) },
-                enabled = selectedDays.size == 3
+                onClick = {
+                    val effectiveLongRun = if (selectedDays.contains(selectedLongRunDay)) {
+                        selectedLongRunDay
+                    } else {
+                        selectedDays.maxByOrNull { it.value } ?: DayOfWeek.SATURDAY
+                    }
+                    onSave(selectedStartDate, selectedDays, selectedProgressiveWeeks, effectiveLongRun)
+                },
+                enabled = selectedDays.size == 3,
             ) {
                 Text("Save")
             }
@@ -525,12 +610,12 @@ fun ScheduleSettingsDialog(
             TextButton(onClick = onDismiss) {
                 Text("Cancel")
             }
-        }
+        },
     )
 
     if (showDatePicker) {
         val datePickerState = rememberDatePickerState(
-            initialSelectedDateMillis = selectedStartDate.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
+            initialSelectedDateMillis = selectedStartDate.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
         )
         DatePickerDialog(
             onDismissRequest = { showDatePicker = false },
@@ -543,7 +628,7 @@ fun ScheduleSettingsDialog(
                                 .toLocalDate()
                         }
                         showDatePicker = false
-                    }
+                    },
                 ) {
                     Text("OK")
                 }
@@ -552,7 +637,7 @@ fun ScheduleSettingsDialog(
                 TextButton(onClick = { showDatePicker = false }) {
                     Text("Cancel")
                 }
-            }
+            },
         ) {
             DatePicker(state = datePickerState)
         }
@@ -576,33 +661,27 @@ fun ScheduledWorkoutItem(
         WorkoutStatus.REST_DAY -> Color.LightGray to "Rest Day"
     }
 
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(
-            containerColor = if (isToday) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    AppSectionCard(
+        role = if (isToday) AppCardRole.HIGHLIGHT else AppCardRole.CONTENT,
+        cornerRadius = 12.dp,
+        onClick = onClick,
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
+            modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+            horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            Column {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = workout.scheduledDate.format(formatter),
                     style = MaterialTheme.typography.bodyMedium,
-                    color = if (isToday) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                    color = if (isToday) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = workout.title,
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
                 )
             }
 
@@ -610,13 +689,13 @@ fun ScheduledWorkoutItem(
                 modifier = Modifier
                     .clip(CircleShape)
                     .background(statusColor)
-                    .padding(horizontal = 12.dp, vertical = 6.dp)
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
             ) {
                 Text(
                     text = statusText,
                     color = Color.White,
                     style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
                 )
             }
         }

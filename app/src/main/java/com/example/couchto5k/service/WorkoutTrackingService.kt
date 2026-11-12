@@ -10,11 +10,16 @@ import android.os.Looper
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.example.couchto5k.MainActivity
+import com.example.couchto5k.domain.model.DistanceUnit
+import com.example.couchto5k.domain.repository.SettingsRepository
 import com.example.couchto5k.engine.ActiveWorkoutState
 import com.example.couchto5k.engine.WorkoutEngine
 import com.example.couchto5k.engine.WorkoutEngineStatus
 import com.example.couchto5k.location.LocationFilter
 import com.example.couchto5k.location.LocationPoint
+import com.example.couchto5k.ui.utils.formatDistance
+import com.example.couchto5k.ui.utils.formatDuration
+import com.example.couchto5k.ui.utils.formatPaceFromSecondsPerKm
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
@@ -36,7 +41,13 @@ class WorkoutTrackingService : Service() {
     @Inject
     lateinit var workoutEngine: WorkoutEngine
 
+    @Inject
+    lateinit var settingsRepository: SettingsRepository
+
     private lateinit var serviceScope: CoroutineScope
+
+    @Volatile
+    private var currentDistanceUnit: DistanceUnit = DistanceUnit.MILES
 
     private lateinit var notificationManager: NotificationManager
     private lateinit var fusedLocationClient: FusedLocationProviderClient
@@ -63,6 +74,12 @@ class WorkoutTrackingService : Service() {
         createLocationCallback()
         createNotificationChannel()
         serviceScope = CoroutineScope(Dispatchers.Main)
+
+        serviceScope.launch {
+            settingsRepository.distanceUnit.collectLatest { unit ->
+                currentDistanceUnit = unit
+            }
+        }
 
         serviceScope.launch {
             workoutEngine.workoutState.collectLatest { state ->
@@ -187,22 +204,23 @@ class WorkoutTrackingService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
-        val intervalName = state.currentInterval?.type?.name ?: "WORKOUT"
+        val intervalName = if (state.isFreeRun) "FREE RUN" else (state.currentInterval?.type?.name ?: "WORKOUT")
         val remainingSeconds = (state.intervalRemainingMillis / 1000).toInt()
-        val remMin = remainingSeconds / 60
-        val remSec = remainingSeconds % 60
-        val formattedRemaining = String.format(Locale.getDefault(), "%d:%02d", remMin, remSec)
+        val formattedRemaining = formatDuration(remainingSeconds)
 
-        val miles = state.distanceMeters / 1609.344
-        val formattedMiles = String.format(Locale.getDefault(), "%.2f mi", miles)
-
+        val formattedDistance = formatDistance(state.distanceMeters, currentDistanceUnit)
         val elapsedSeconds = (state.totalElapsedMillis / 1000).toInt()
-        val elapsedMin = elapsedSeconds / 60
-        val elapsedSec = elapsedSeconds % 60
-        val formattedElapsed = String.format(Locale.getDefault(), "%d:%02d", elapsedMin, elapsedSec)
+        val formattedElapsed = formatDuration(elapsedSeconds)
+
+        val splitLabel = if (currentDistanceUnit == DistanceUnit.MILES) "This Mile Pace" else "This Km Pace"
+        val formattedSplitPace = formatPaceFromSecondsPerKm(state.currentSplitPaceSecondsPerKm, currentDistanceUnit)
 
         val titleText = "SafeStride 5K • $intervalName"
-        val contentText = "$formattedMiles • $formattedRemaining remaining"
+        val contentText = if (state.isFreeRun) {
+            "$formattedDistance • $formattedElapsed elapsed • $splitLabel: $formattedSplitPace"
+        } else {
+            "$formattedDistance • $formattedRemaining remaining • $splitLabel: $formattedSplitPace"
+        }
         val subText = "Total: $formattedElapsed"
 
         return NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)

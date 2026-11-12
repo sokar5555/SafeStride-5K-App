@@ -11,6 +11,7 @@ import android.os.Vibrator
 import android.os.VibratorManager
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
+import com.example.couchto5k.domain.model.DistanceUnit
 import com.example.couchto5k.domain.repository.SettingsRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
@@ -32,6 +33,16 @@ interface AudioHapticManager {
     fun playTransitionSound()
     fun vibrateTransition()
     fun speak(message: String)
+    fun announceSplit(splitNumber: Int, paceSecondsPerUnit: Double, unit: DistanceUnit) {
+        playTransitionSound()
+        vibrateTransition()
+        val totalPaceSeconds = paceSecondsPerUnit.toInt().coerceAtLeast(0)
+        val minutes = totalPaceSeconds / 60
+        val seconds = totalPaceSeconds % 60
+        val formattedPace = String.format(Locale.getDefault(), "%d:%02d", minutes, seconds)
+        val unitLabel = if (unit == DistanceUnit.MILES) "Mile" else "Kilometer"
+        speak("$unitLabel $splitNumber complete, $formattedPace pace")
+    }
     fun release()
 }
 

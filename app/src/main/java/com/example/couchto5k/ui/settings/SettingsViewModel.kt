@@ -88,6 +88,20 @@ class SettingsViewModel internal constructor(
             initialValue = null,
         )
 
+    val progressiveWeeksExtension: StateFlow<Int> = settingsRepository.progressiveWeeksExtension
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.Eagerly,
+            initialValue = 0,
+        )
+
+    val longRunDay: StateFlow<DayOfWeek> = settingsRepository.longRunDay
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.Eagerly,
+            initialValue = DayOfWeek.SATURDAY,
+        )
+
     fun setDistanceUnit(unit: DistanceUnit) {
         viewModelScope.launch {
             settingsRepository.setDistanceUnit(unit)
@@ -125,8 +139,10 @@ class SettingsViewModel internal constructor(
         viewModelScope.launch {
             settingsRepository.setPreferredWorkoutDays(days)
             val startDate = settingsRepository.programStartDate.first() ?: LocalDate.now()
+            val progressiveWeeks = settingsRepository.progressiveWeeksExtension.first()
+            val designatedLongRunDay = settingsRepository.longRunDay.first()
             if (days.size == 3) {
-                generateScheduleUseCase?.invoke(startDate, days)
+                generateScheduleUseCase?.invoke(startDate, days, progressiveWeeks, designatedLongRunDay)
             }
         }
     }
@@ -135,8 +151,34 @@ class SettingsViewModel internal constructor(
         viewModelScope.launch {
             settingsRepository.setProgramStartDate(date)
             val days = settingsRepository.preferredWorkoutDays.first()
+            val progressiveWeeks = settingsRepository.progressiveWeeksExtension.first()
+            val designatedLongRunDay = settingsRepository.longRunDay.first()
             if (days.isNotEmpty()) {
-                generateScheduleUseCase?.invoke(date, days)
+                generateScheduleUseCase?.invoke(date, days, progressiveWeeks, designatedLongRunDay)
+            }
+        }
+    }
+
+    fun setProgressiveWeeksExtension(weeks: Int) {
+        viewModelScope.launch {
+            settingsRepository.setProgressiveWeeksExtension(weeks)
+            val startDate = settingsRepository.programStartDate.first() ?: LocalDate.now()
+            val days = settingsRepository.preferredWorkoutDays.first()
+            val designatedLongRunDay = settingsRepository.longRunDay.first()
+            if (days.isNotEmpty()) {
+                generateScheduleUseCase?.invoke(startDate, days, weeks, designatedLongRunDay)
+            }
+        }
+    }
+
+    fun setLongRunDay(day: DayOfWeek) {
+        viewModelScope.launch {
+            settingsRepository.setLongRunDay(day)
+            val startDate = settingsRepository.programStartDate.first() ?: LocalDate.now()
+            val days = settingsRepository.preferredWorkoutDays.first()
+            val progressiveWeeks = settingsRepository.progressiveWeeksExtension.first()
+            if (days.isNotEmpty()) {
+                generateScheduleUseCase?.invoke(startDate, days, progressiveWeeks, day)
             }
         }
     }
@@ -148,7 +190,9 @@ class SettingsViewModel internal constructor(
             val defaultDays = setOf(DayOfWeek.MONDAY, DayOfWeek.WEDNESDAY, DayOfWeek.SATURDAY)
             settingsRepository.setProgramStartDate(today)
             settingsRepository.setPreferredWorkoutDays(defaultDays)
-            generateScheduleUseCase?.invoke(today, defaultDays)
+            settingsRepository.setProgressiveWeeksExtension(0)
+            settingsRepository.setLongRunDay(DayOfWeek.SATURDAY)
+            generateScheduleUseCase?.invoke(today, defaultDays, 0, DayOfWeek.SATURDAY)
         }
     }
 }

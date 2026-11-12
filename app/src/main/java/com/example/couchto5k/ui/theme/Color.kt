@@ -16,5 +16,10 @@ val SecondaryTextColor = Color(0xFF5F6B76)
 val OutlineColor = Color(0xFFD7E0E8)
 
 val SuccessColor = Color(0xFF2E7D32)
+val SuccessContainerColor = Color(0xFFE8F5E9)
+val OnSuccessContainerColor = Color(0xFF1B5E20)
+
 val WarningColor = Color(0xFFED6C02)
 val ErrorColor = Color(0xFFBA1A1A)
+val ErrorContainerColor = Color(0xFFFFDAD6)
+val OnErrorContainerColor = Color(0xFF410002)

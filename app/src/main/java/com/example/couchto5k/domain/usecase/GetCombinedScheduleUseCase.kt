@@ -2,6 +2,7 @@ package com.example.couchto5k.domain.usecase
 
 import com.example.couchto5k.data.local.dao.CompletedWorkoutDao
 import com.example.couchto5k.data.local.dao.ScheduledWorkoutDao
+import com.example.couchto5k.data.repository.DefaultTrainingPlanRepository
 import com.example.couchto5k.domain.model.ScheduledWorkout
 import com.example.couchto5k.domain.model.WorkoutStatus
 import com.example.couchto5k.domain.repository.TrainingPlanRepository
@@ -43,6 +44,7 @@ class GetCombinedScheduleUseCase @Inject constructor(
                 }
 
                 val workoutTitle = workoutsMap[entity.trainingWorkoutId]?.title
+                    ?: DefaultTrainingPlanRepository.generateProgressiveWorkoutById(entity.trainingWorkoutId)?.title
                     ?: "Week ${((entity.trainingWorkoutId - 1) / 3) + 1}, Workout ${((entity.trainingWorkoutId - 1) % 3) + 1}"
 
                 ScheduledWorkout(

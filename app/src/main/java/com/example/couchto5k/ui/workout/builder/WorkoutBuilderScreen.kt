@@ -73,6 +73,7 @@ import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.couchto5k.domain.model.IntervalType
 import com.example.couchto5k.domain.model.WorkoutInterval
+import com.example.couchto5k.ui.components.AppHeaderBanner
 import kotlin.math.roundToInt
 
 sealed interface TimePickerTarget {
@@ -106,16 +107,9 @@ fun WorkoutBuilderScreen(
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            TopAppBar(
-                title = { Text("Build Custom Workout", fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
-                        )
-                    }
-                },
+            AppHeaderBanner(
+                title = "Build Custom Workout",
+                onBackClick = onBack,
             )
         },
         bottomBar = {
