@@ -54,49 +54,50 @@ class GenerateScheduleUseCase @Inject constructor(
             currentDate = currentDate.plusDays(daysToAdd)
         }
 
-        // 2. Beyond 5K: +10% weekly progressive volume extension with designated Long Run day
+        // 2. Beyond 5K: +10% weekly progressive volume extension with designated Long Run day (Option A)
         if (progressiveWeeksExtension > 0) {
             val progressiveWorkouts = DefaultTrainingPlanRepository.generateProgressiveWeeks(progressiveWeeksExtension)
-            val workoutsByWeek = progressiveWorkouts.groupBy { it.week }
-            val effectiveLongRunDay = if (longRunDay != null && preferredDays.contains(longRunDay)) {
+            val workoutsByWeek = progressiveWorkouts.groupBy { (_, week) -> week }
+            val effectiveLongRunDay = if ((longRunDay != null) && preferredDays.contains(longRunDay)) {
                 longRunDay
             } else {
                 sortedDays.last()
             }
 
+            // Establish the weekly training cycle so that it culminates on effectiveLongRunDay
+            val longRunIndex = sortedDays.indexOf(effectiveLongRunDay)
+            val fullCycle = if (longRunIndex != -1) {
+                sortedDays.drop(longRunIndex + 1) + sortedDays.take(longRunIndex + 1)
+            } else {
+                sortedDays
+            }
+            val progressiveDays = if (fullCycle.size >= 3) {
+                fullCycle.takeLast(3)
+            } else {
+                fullCycle
+            }
+
             for ((_, weekWorkouts) in workoutsByWeek) {
-                val midweekWorkouts = weekWorkouts.filter { it.workoutNumber != 3 }.toMutableList()
-                val longRunWorkout = weekWorkouts.find { it.workoutNumber == 3 } ?: weekWorkouts.last()
+                val sortedWorkouts = weekWorkouts.sortedBy { (_, _, workoutNumber) -> workoutNumber }
+                for (i in sortedWorkouts.indices) {
+                    val (workoutId) = sortedWorkouts[i]
+                    val targetDayOfWeek = progressiveDays[i % progressiveDays.size]
 
-                // Collect the next 3 scheduled training dates for this progressive week
-                val weekDates = mutableListOf<LocalDate>()
-                repeat(weekWorkouts.size) {
-                    weekDates.add(currentDate)
-                    dayIndex = (dayIndex + 1) % sortedDays.size
-                    var daysToAdd = 1L
-                    while (currentDate.plusDays(daysToAdd).dayOfWeek != sortedDays[dayIndex]) {
-                        daysToAdd++
+                    // Advance currentDate to targetDayOfWeek
+                    while (currentDate.dayOfWeek != targetDayOfWeek) {
+                        currentDate = currentDate.plusDays(1)
                     }
-                    currentDate = currentDate.plusDays(daysToAdd)
-                }
 
-                // Assign Long Run to the date matching effectiveLongRunDay (or the last date of the week)
-                val longRunDate = weekDates.find { it.dayOfWeek == effectiveLongRunDay } ?: weekDates.last()
-                var midweekIndex = 0
-
-                for (date in weekDates) {
-                    val assignedWorkout = if (date == longRunDate) {
-                        longRunWorkout
-                    } else {
-                        midweekWorkouts.getOrElse(midweekIndex++) { longRunWorkout }
-                    }
                     scheduledEntities.add(
                         ScheduledWorkoutEntity(
-                            trainingWorkoutId = assignedWorkout.id,
-                            scheduledDate = date,
+                            trainingWorkoutId = workoutId,
+                            scheduledDate = currentDate,
                             status = WorkoutStatus.UPCOMING.name,
                         ),
                     )
+
+                    // Step at least 1 day forward before seeking the next training day
+                    currentDate = currentDate.plusDays(1)
                 }
             }
         }

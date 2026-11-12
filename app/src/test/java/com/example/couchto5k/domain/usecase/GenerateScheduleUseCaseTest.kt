@@ -55,8 +55,8 @@ class GenerateScheduleUseCaseTest {
         assertEquals(startDate, scheduledWorkouts.first().scheduledDate)
         assertTrue(preferredDays.contains(scheduledWorkouts.first().scheduledDate.dayOfWeek))
 
-        scheduledWorkouts.forEach { item ->
-            assertTrue(preferredDays.contains(item.scheduledDate.dayOfWeek))
+        scheduledWorkouts.forEach { (_, _, scheduledDate) ->
+            assertTrue(preferredDays.contains(scheduledDate.dayOfWeek))
         }
     }
 
@@ -100,20 +100,71 @@ class GenerateScheduleUseCaseTest {
         assertEquals(12, progressiveWorkouts.size)
 
         val week9RunningSeconds = 3 * 30 * 60 // 5400s (90 min)
-        val week10RunningSeconds = progressiveWorkouts.filter { it.week == 10 }.sumOf { it.totalPlannedRunningSeconds }
-        val week11RunningSeconds = progressiveWorkouts.filter { it.week == 11 }.sumOf { it.totalPlannedRunningSeconds }
+        val week10RunningSeconds = progressiveWorkouts.asSequence().filter { (_, week) -> week == 10 }.sumOf { it.totalPlannedRunningSeconds }
+        val week11RunningSeconds = progressiveWorkouts.asSequence().filter { (_, week) -> week == 11 }.sumOf { it.totalPlannedRunningSeconds }
 
         assertTrue("Week 10 volume must exceed Week 9 volume", week10RunningSeconds > week9RunningSeconds)
         assertTrue("Week 11 volume must exceed Week 10 volume by ~10%", week11RunningSeconds > week10RunningSeconds)
 
         // Verify Long Run (Workout 3 of each progressive week) is placed on the designated Long Run day (SUNDAY)
         val progressiveScheduled = scheduledWorkouts.drop(27)
-        progressiveScheduled.forEach { entity ->
-            val workout = trainingPlanRepository.getWorkoutById(entity.trainingWorkoutId)
+        progressiveScheduled.forEach { (_, trainingWorkoutId, scheduledDate) ->
+            val workout = trainingPlanRepository.getWorkoutById(trainingWorkoutId)
             requireNotNull(workout)
             if (workout.workoutNumber == 3) {
-                assertEquals(DayOfWeek.SUNDAY, entity.scheduledDate.dayOfWeek)
+                assertEquals(DayOfWeek.SUNDAY, scheduledDate.dayOfWeek)
                 assertTrue(workout.title.contains("Long Run"))
+            }
+        }
+    }
+
+    @Test
+    fun generateSchedule_progressiveWeeks_workout3AlwaysScheduledAfterWorkout2RegardlessOfStartDate() = runTest {
+        val preferredDays = setOf(DayOfWeek.TUESDAY, DayOfWeek.THURSDAY, DayOfWeek.SUNDAY)
+        // Test various starting dates: Tuesday (first preferred), Thursday (middle preferred), Sunday (last preferred)
+        val testStartDates = listOf(
+            LocalDate.of(2025, 3, 4), // Tuesday
+            LocalDate.of(2025, 3, 6), // Thursday
+            LocalDate.of(2025, 3, 9), // Sunday
+        )
+
+        for (startDate in testStartDates) {
+            useCase(
+                startDate = startDate,
+                preferredDays = preferredDays,
+                progressiveWeeksExtension = 3,
+                longRunDay = DayOfWeek.SUNDAY,
+            )
+
+            val scheduled = scheduledWorkoutDao.getAllScheduledWorkouts().first()
+            val progressiveScheduled = scheduled.drop(27)
+
+            // Group by week
+            val byWeek = progressiveScheduled.groupBy { (_, trainingWorkoutId) ->
+                val (_, week) = trainingPlanRepository.getWorkoutById(trainingWorkoutId)!!
+                week
+            }
+
+            for ((week, entities) in byWeek) {
+                assertEquals("Each progressive week must have 3 workouts", 3, entities.size)
+
+                val (_, _, w1Date) = entities.find { (_, workoutId) -> trainingPlanRepository.getWorkoutById(workoutId)?.workoutNumber == 1 }!!
+                val (_, _, w2Date) = entities.find { (_, workoutId) -> trainingPlanRepository.getWorkoutById(workoutId)?.workoutNumber == 2 }!!
+                val (_, _, w3Date) = entities.find { (_, workoutId) -> trainingPlanRepository.getWorkoutById(workoutId)?.workoutNumber == 3 }!!
+
+                assertTrue(
+                    "Week $week: Workout 1 ($w1Date) must be before Workout 2 ($w2Date)",
+                    w1Date.isBefore(w2Date),
+                )
+                assertTrue(
+                    "Week $week: Workout 2 ($w2Date) must be before Workout 3 ($w3Date)",
+                    w2Date.isBefore(w3Date),
+                )
+                assertEquals(
+                    "Week $week: Workout 3 must be on designated Long Run Day (Sunday)",
+                    DayOfWeek.SUNDAY,
+                    w3Date.dayOfWeek,
+                )
             }
         }
     }
