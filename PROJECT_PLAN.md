@@ -248,8 +248,10 @@ Prioritize glanceability. Show only essential information:
 - Next interval
 - Total elapsed time
 - Distance
-- Average pace
+- Overall average pace
+- Current mile split pace (this mile only)
 - Pause/resume
+- Free Run count-up mode
 
 Do not put a live map or dense charts on the MVP active-workout screen.
 
@@ -447,7 +449,7 @@ Workout Detail must show:
 - Walking time
 - Longest run
 - Route map
-- Interval breakdown and completion state
+- Interval breakdown, per-interval distance, and completion state
 
 ## 22. Stats Dashboard
 Four sections:
@@ -624,15 +626,63 @@ Tasks:
 
 Done when: a newly completed workout immediately updates stats and a new longest run updates the record/progression correctly.
 
-### Phase 8 — UX Polish
+### Phase 8 — UX Polish (Completed)
 Tasks:
-- Empty/loading/error states
-- Permission-denied/GPS-disabled states
-- Cancel confirmation
-- Completion celebration
-- Accessibility review
-- Settings
-- Appropriate animations
+- [x] Empty/loading/error states
+- [x] Permission-denied/GPS-disabled states
+- [x] Cancel confirmation
+- [x] Completion celebration
+- [x] Accessibility review
+- [x] Settings
+- [x] Appropriate animations
+
+Done when: onboarding, settings, cancel confirmation, completion celebration, accessibility, and smooth animations are fully functional.
+
+### Phase 8.5 — Advanced Running Features & Progressive Plan Extension
+Tasks:
+- [ ] **App-Wide Banner Theme System**: Standardize top app bars, header banners, section cards, and notification banners across all tabs and screens using a unified Material 3 white-and-blue visual theme system.
+- [ ] **Free Run Mode**:
+  - Open-ended count-up timer (`00:00` -> `00:01` -> ...).
+  - Live GPS tracking, distance, and current mile/km split pace.
+  - Audio & haptic mile/km split cues (e.g. *"Mile 1 complete, 8:45 pace"*).
+  - Saved as `Free Run` in Room database and integrated into History and Stats.
+- [ ] **Custom Progressive Plan Generator (Replacing Default Calendar Beyond 5K)**:
+  - Up to 5K: Use standard Couch to 5K progression.
+  - Beyond 5K: Replace default schedule with a progressive +10% weekly volume increase rule.
+  - Allow user to specify designated days for Long Runs (e.g. Saturday/Sunday) with shorter midweek runs.
+- [ ] **Current Mile Split Pace in Active Workout**:
+  - Calculate and display "This Mile Pace" (average pace for the current mile/km segment) alongside overall workout pace on `ActiveWorkoutScreen` and active foreground service notification.
+  - Reset split timer/distance on every mile or kilometer boundary.
+- [ ] **Transient Calendar Scrolling**:
+  - Ensure month/week scrolling on `CalendarScreen` remains purely ephemeral in ViewModel memory without overwriting or drifting saved start dates / schedule anchors in DataStore.
+- [ ] **Per-Interval Distance Tracking in Workout History**:
+  - Add `distanceMeters: Double` to `CompletedIntervalEntity` in Room database.
+  - Track and persist distance covered during each individual interval (Warmup, Run, Walk, Cooldown) during active workouts.
+  - Display per-interval distance breakdown on `WorkoutDetailScreen` (e.g. `1. Run: 3:00 | 0.32 mi`).
+- [ ] **Max Pace Display Cap**:
+  - Enforce a 300 minutes per mile threshold in `FormatUtils.kt` (`formatPace()`) returning `"--:--"` when pace > 300 min/mi (or ~186 min/km, or speed < 0.1 km/h) to filter extreme stationary numbers across Active Workout, History, Detail, and Stats screens.
+
+Done when: Free Run mode counts up with audio split cues, 10% progressive plan extends calendar beyond 5K, current mile split pace displays on active run, per-interval distances show in history, calendar scrolling is transient, and pace is capped at 300 min/mi.
+
+### Phase 8.6 — Active Run UX Polish, Open Exercise Modes & Accurate Program Progress
+Tasks:
+- [ ] **Remove Open-Ended Timer Pill Label**:
+  - Remove the `"Open-Ended Count-Up Timer"` label/pill on `ActiveWorkoutScreen` during open exercise (Free Run / Free Walk).
+- [ ] **3-Second Pace Display Throttle**:
+  - Update both `AVG PACE` and `THIS MILE/KM PACE` on `ActiveWorkoutScreen` (and active notification pace display) once every **3 seconds** instead of every 100ms/1s tick, while keeping timer and distance updates smooth.
+- [ ] **Keep & Restyle Complete Button (Remove Redundant Finish)**:
+  - Remove the redundant top-bar `"FINISH"` action during open exercise (leaving the top-left close/cancel action).
+  - Keep the `"COMPLETE"` button at the bottom and redesign its shape, sizing, and alignment to be visually consistent and balanced with the Pause/Resume control.
+- [ ] **Open Exercise Run / Walk Selection & Live Switching**:
+  - Allow choosing **Run** or **Walk** before starting an open exercise on `HomeScreen`.
+  - Allow toggling between **Run** and **Walk** live mid-workout on `ActiveWorkoutScreen`, recording separate `IntervalType.RUN` and `IntervalType.WALK` segments with per-segment duration and distance in `WorkoutEngine` and Room.
+  - Attribute `WALK` segments to `walkingSeconds` only, and `RUN` segments to `runningSeconds` and `longestCompletedRunSeconds` / Running Progression records.
+- [ ] **Accurate Program Progress in Stats**:
+  - Update `GetStatsUseCase` so `totalProgramWorkoutsCount` reflects the full configured program length (`27 + progressiveWeeksExtension * 3`, e.g., `39` for a 13-week program).
+  - Count only **distinct completed official program workouts** (`trainingWorkoutId in 1..totalProgramWorkoutsCount` with `WorkoutEngineStatus.COMPLETED`), excluding open exercises (Free Run/Walk), custom workouts, cancelled sessions, and repeated workouts.
+  - Calculate `currentWeekNumber` from the calendar start week (`SettingsRepository.programStartDate` relative to today's week, clamped to `1..(9 + progressiveWeeksExtension)` and defaulting to `1` if unset or before the start date).
+
+Done when: Open exercise omits the `"Open-Ended Count-Up Timer"` label, updates both pace metrics every 3 seconds, uses a single consistently shaped `"COMPLETE"` control, supports choosing Run or Walk at start and switching live mid-workout with accurate Run/Walk attribution, and Stats Program Progress counts distinct completed official workouts against the full configured program length with `currentWeekNumber` derived from the calendar start week.
 
 ### Phase 9 — QA
 Timer scenarios:
