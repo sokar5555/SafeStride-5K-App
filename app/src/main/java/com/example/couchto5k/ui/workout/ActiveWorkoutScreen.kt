@@ -26,6 +26,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.DirectionsRun
+import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.EmojiEvents
@@ -40,7 +42,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -82,7 +83,6 @@ import com.example.couchto5k.ui.utils.formatPace
 import com.example.couchto5k.ui.utils.formatPaceFromSecondsPerKm
 import java.util.Locale
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ActiveWorkoutScreen(
     onExit: () -> Unit,
@@ -129,11 +129,11 @@ fun ActiveWorkoutScreen(
     if (showCancelDialog) {
         AlertDialog(
             onDismissRequest = { showCancelDialog = false },
-            title = { Text(if (state.isFreeRun) "Finish Free Run?" else "Cancel Workout?") },
+            title = { Text(if (state.isFreeRun) "Complete Open Exercise?" else "Cancel Workout?") },
             text = {
                 Text(
                     if (state.isFreeRun) {
-                        "Would you like to finish and save your Free Run to Workout History?"
+                        "Would you like to complete and save this session to Workout History?"
                     } else {
                         "Are you sure you want to stop this workout? Progress recorded so far will be saved to your history."
                     },
@@ -156,7 +156,7 @@ fun ActiveWorkoutScreen(
                     ),
                     modifier = Modifier.heightIn(min = 48.dp),
                 ) {
-                    Text(if (state.isFreeRun) "Finish & Save" else "Stop Workout", fontWeight = FontWeight.Bold)
+                    Text(if (state.isFreeRun) "Complete & Save" else "Stop Workout", fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
@@ -173,20 +173,29 @@ fun ActiveWorkoutScreen(
     // D. Completion Celebration & Personal Record Unlock
     if (isCompleted) {
         val elapsedSeconds = (state.totalElapsedMillis / 1000).toInt()
+        val fallbackLongestRun = if (state.isFreeRun) {
+            state.openExerciseSegments
+                .asSequence()
+                .filter { it.type == IntervalType.RUN }
+                .maxOfOrNull { (it.durationMillis / 1000L).toInt() }
+                ?: if (state.currentInterval?.type == IntervalType.RUN) elapsedSeconds else 0
+        } else {
+            currentWorkout?.longestPlannedRunIntervalSeconds ?: 0
+        }
         val summary = completionSummary ?: WorkoutCompletionSummary(
             completedWorkoutId = null,
-            workoutTitle = if (state.isFreeRun) "Free Run" else (currentWorkout?.title ?: "Workout"),
+            workoutTitle = if (state.isFreeRun) {
+                if (state.currentInterval?.type == IntervalType.WALK) "Free Walk" else "Free Run"
+            } else {
+                currentWorkout?.title ?: "Workout"
+            },
             distanceMeters = state.distanceMeters,
             durationSeconds = if (state.isFreeRun) {
                 elapsedSeconds
             } else {
                 maxOf(elapsedSeconds, currentWorkout?.totalPlannedDurationSeconds ?: 0)
             },
-            longestRunSeconds = if (state.isFreeRun) {
-                elapsedSeconds
-            } else {
-                currentWorkout?.longestPlannedRunIntervalSeconds ?: 0
-            },
+            longestRunSeconds = fallbackLongestRun,
             isNewPersonalRecord = false,
         )
         WorkoutCompletionCelebrationDialog(
@@ -206,8 +215,9 @@ fun ActiveWorkoutScreen(
 
     Scaffold(
         topBar = {
+            val openTitle = if (state.currentInterval?.type == IntervalType.WALK) "Free Walk" else "Free Run"
             AppHeaderBanner(
-                title = if (state.isFreeRun) "Free Run" else (currentWorkout?.title ?: "Workout"),
+                title = if (state.isFreeRun) openTitle else (currentWorkout?.title ?: "Workout"),
                 navigationIcon = {
                     IconButton(
                         onClick = {
@@ -223,26 +233,20 @@ fun ActiveWorkoutScreen(
                     }
                 },
                 actions = {
-                    if ((state.status == WorkoutEngineStatus.RUNNING) || (state.status == WorkoutEngineStatus.PAUSED)) {
+                    if (!state.isFreeRun && ((state.status == WorkoutEngineStatus.RUNNING) || (state.status == WorkoutEngineStatus.PAUSED))) {
                         TextButton(
-                            onClick = {
-                                if (state.isFreeRun) {
-                                    viewModel.completeFreeRun()
-                                } else {
-                                    showCancelDialog = true
-                                }
-                            },
+                            onClick = { showCancelDialog = true },
                             modifier = Modifier.heightIn(min = 48.dp),
                         ) {
                             Icon(
-                                imageVector = if (state.isFreeRun) Icons.Default.Check else Icons.Default.Stop,
-                                contentDescription = if (state.isFreeRun) "Finish Free Run" else "Stop Workout",
-                                tint = if (state.isFreeRun) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                                imageVector = Icons.Default.Stop,
+                                contentDescription = "Stop Workout",
+                                tint = MaterialTheme.colorScheme.error,
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
-                                text = if (state.isFreeRun) "FINISH" else "STOP",
-                                color = if (state.isFreeRun) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                                text = "STOP",
+                                color = MaterialTheme.colorScheme.error,
                                 fontWeight = FontWeight.Bold,
                             )
                         }
@@ -266,22 +270,8 @@ fun ActiveWorkoutScreen(
             if (interval != null) {
                 val typeColors = getIntervalColors(interval.type)
 
-                // 1. Interval Step Counter Indicator
-                if (state.isFreeRun) {
-                    Surface(
-                        color = MaterialTheme.colorScheme.surfaceVariant,
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.padding(bottom = 8.dp),
-                    ) {
-                        Text(
-                            text = "Open-Ended Count-Up Timer",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
-                        )
-                    }
-                } else {
+                // 1. Interval Step Counter Indicator (for structured workouts only)
+                if (!state.isFreeRun) {
                     currentWorkout?.let { workout ->
                         val currentStep = state.currentIntervalIndex + 1
                         val totalSteps = workout.intervals.size
@@ -303,10 +293,15 @@ fun ActiveWorkoutScreen(
 
                 // 2. Prominent Interval Type Indicator (with smooth Crossfade)
                 Crossfade(
-                    targetState = if (state.isFreeRun) IntervalType.RUN else interval.type,
+                    targetState = interval.type,
                     label = "IntervalTypeCrossfade",
                 ) { intervalType ->
                     val bannerColors = getIntervalColors(intervalType)
+                    val bannerLabel = if (state.isFreeRun) {
+                        if (intervalType == IntervalType.WALK) "FREE WALK" else "FREE RUN"
+                    } else {
+                        intervalType.name
+                    }
                     Surface(
                         color = bannerColors.first,
                         shape = RoundedCornerShape(16.dp),
@@ -315,7 +310,7 @@ fun ActiveWorkoutScreen(
                             .padding(bottom = 12.dp),
                     ) {
                         Text(
-                            text = if (state.isFreeRun) "FREE RUN" else intervalType.name,
+                            text = bannerLabel,
                             color = bannerColors.second,
                             style = MaterialTheme.typography.headlineMedium,
                             fontWeight = FontWeight.ExtraBold,
@@ -325,7 +320,7 @@ fun ActiveWorkoutScreen(
                     }
                 }
 
-                // 3. Large Numeric Timer (Count-Up for Free Run, Countdown for Interval Workout)
+                // 3. Large Numeric Timer (Count-Up for Open Exercise, Countdown for Interval Workout)
                 val elapsedSeconds = (state.totalElapsedMillis / 1000).toInt()
                 val remainingSeconds = (state.intervalRemainingMillis / 1000).toInt()
                 val displayedTimerSeconds = if (state.isFreeRun) elapsedSeconds else remainingSeconds
@@ -338,7 +333,40 @@ fun ActiveWorkoutScreen(
                     modifier = Modifier.padding(bottom = 8.dp),
                 )
 
-                if (!state.isFreeRun) {
+                if (state.isFreeRun) {
+                    val isRunningSegment = interval.type == IntervalType.RUN
+                    val targetType = if (isRunningSegment) IntervalType.WALK else IntervalType.RUN
+                    val targetColors = getIntervalColors(targetType)
+
+                    Button(
+                        onClick = { viewModel.switchOpenExerciseType(targetType) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp)
+                            .heightIn(min = 52.dp),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = targetColors.first,
+                            contentColor = targetColors.second,
+                        ),
+                    ) {
+                        Icon(
+                            imageVector = if (isRunningSegment) {
+                                Icons.AutoMirrored.Filled.DirectionsWalk
+                            } else {
+                                Icons.AutoMirrored.Filled.DirectionsRun
+                            },
+                            contentDescription = null,
+                            modifier = Modifier.size(22.dp),
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = if (isRunningSegment) "SWITCH TO WALK" else "SWITCH TO RUN",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 15.sp,
+                        )
+                    }
+                } else {
                     val totalSeconds = interval.durationSeconds
                     val rawProgress = if (totalSeconds > 0) {
                         (1f - (state.intervalRemainingMillis.toFloat() / (totalSeconds * 1000f))).coerceIn(0f, 1f)
@@ -409,8 +437,12 @@ fun ActiveWorkoutScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // 6. Live GPS Metrics Card (DISTANCE, AVG PACE, and THIS MILE/KM PACE)
+                // 6. Live GPS Metrics Card (DISTANCE, AVG PACE, and THIS MILE/KM PACE — paces throttled to 3s)
                 val splitLabel = if (distanceUnit == DistanceUnit.MILES) "THIS MILE PACE" else "THIS KM PACE"
+                val averagePaceFormatted = formatPaceFromSecondsPerKm(
+                    paceSecondsPerKm = state.averagePaceSecondsPerKm,
+                    unit = distanceUnit,
+                )
                 val currentSplitPaceFormatted = formatPaceFromSecondsPerKm(
                     paceSecondsPerKm = state.currentSplitPaceSecondsPerKm,
                     unit = distanceUnit,
@@ -456,7 +488,7 @@ fun ActiveWorkoutScreen(
                             horizontalAlignment = Alignment.CenterHorizontally,
                         ) {
                             Text(
-                                text = formatPace(state.distanceMeters, elapsedSeconds, distanceUnit),
+                                text = averagePaceFormatted,
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.ExtraBold,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer,
@@ -549,12 +581,68 @@ fun ActiveWorkoutScreen(
                 }
 
                 // 8. Controls (Pause/Resume, Skip/Complete)
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    if (!state.isFreeRun) {
+                if (state.isFreeRun) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(32.dp, Alignment.CenterHorizontally),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            FloatingActionButton(
+                                onClick = {
+                                    if (state.isPaused) viewModel.resume() else viewModel.pause()
+                                },
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(80.dp),
+                                shape = CircleShape,
+                            ) {
+                                Icon(
+                                    imageVector = if (state.isPaused) Icons.Default.PlayArrow else Icons.Default.Pause,
+                                    contentDescription = if (state.isPaused) "Resume Workout" else "Pause Workout",
+                                    modifier = Modifier.size(40.dp),
+                                    tint = MaterialTheme.colorScheme.onPrimary,
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = if (state.isPaused) "Resume" else "Pause",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
+
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            FloatingActionButton(
+                                onClick = { viewModel.completeFreeRun() },
+                                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.size(80.dp),
+                                shape = CircleShape,
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = "Complete Open Exercise",
+                                    modifier = Modifier.size(36.dp),
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = "Complete",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
+                    }
+                } else {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
                         IconButton(
                             onClick = { viewModel.skipPrevious() },
                             modifier = Modifier.size(56.dp),
@@ -565,25 +653,23 @@ fun ActiveWorkoutScreen(
                                 modifier = Modifier.size(32.dp),
                             )
                         }
-                    }
 
-                    FloatingActionButton(
-                        onClick = {
-                            if (state.isPaused) viewModel.resume() else viewModel.pause()
-                        },
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(80.dp),
-                        shape = CircleShape,
-                    ) {
-                        Icon(
-                            imageVector = if (state.isPaused) Icons.Default.PlayArrow else Icons.Default.Pause,
-                            contentDescription = if (state.isPaused) "Resume Workout" else "Pause Workout",
-                            modifier = Modifier.size(40.dp),
-                            tint = MaterialTheme.colorScheme.onPrimary,
-                        )
-                    }
+                        FloatingActionButton(
+                            onClick = {
+                                if (state.isPaused) viewModel.resume() else viewModel.pause()
+                            },
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(80.dp),
+                            shape = CircleShape,
+                        ) {
+                            Icon(
+                                imageVector = if (state.isPaused) Icons.Default.PlayArrow else Icons.Default.Pause,
+                                contentDescription = if (state.isPaused) "Resume Workout" else "Pause Workout",
+                                modifier = Modifier.size(40.dp),
+                                tint = MaterialTheme.colorScheme.onPrimary,
+                            )
+                        }
 
-                    if (!state.isFreeRun) {
                         IconButton(
                             onClick = { viewModel.skipNext() },
                             modifier = Modifier.size(56.dp),
@@ -593,16 +679,6 @@ fun ActiveWorkoutScreen(
                                 contentDescription = "Next Interval",
                                 modifier = Modifier.size(32.dp),
                             )
-                        }
-                    } else {
-                        Button(
-                            onClick = { viewModel.completeFreeRun() },
-                            modifier = Modifier.heightIn(min = 52.dp),
-                            shape = RoundedCornerShape(14.dp),
-                        ) {
-                            Icon(Icons.Default.Check, contentDescription = "Complete Free Run")
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("COMPLETE", fontWeight = FontWeight.Bold)
                         }
                     }
                 }

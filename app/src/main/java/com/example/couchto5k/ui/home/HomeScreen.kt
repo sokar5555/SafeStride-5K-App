@@ -1,5 +1,6 @@
 package com.example.couchto5k.ui.home
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -18,6 +19,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.DirectionsRun
+import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeleteSweep
@@ -27,12 +29,13 @@ import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -43,10 +46,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.couchto5k.domain.model.IntervalType
 import com.example.couchto5k.domain.model.TrainingWorkout
 import com.example.couchto5k.engine.WorkoutEngine
 import com.example.couchto5k.ui.components.AppCardRole
@@ -56,13 +61,13 @@ import com.example.couchto5k.ui.components.AppSectionHeader
 import com.example.couchto5k.ui.utils.formatDuration
 import com.example.couchto5k.ui.utils.squishyOverscroll
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     onBuildCustomWorkoutClick: () -> Unit,
     onSelectProgramClick: () -> Unit,
     onWorkoutPreviewClick: (Long) -> Unit,
     onStartWorkoutClick: (Long) -> Unit,
+    onStartOpenExerciseClick: (IntervalType) -> Unit = { onStartWorkoutClick(WorkoutEngine.FREE_RUN_WORKOUT_ID) },
     onSettingsClick: () -> Unit = {},
     bottomBar: @Composable () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel(),
@@ -70,6 +75,7 @@ fun HomeScreen(
     val customWorkouts by viewModel.customWorkouts.collectAsState()
     var workoutToDelete by remember { mutableStateOf<TrainingWorkout?>(null) }
     var showClearAllSavedDialog by remember { mutableStateOf(value = false) }
+    var selectedOpenExerciseType by remember { mutableStateOf(IntervalType.RUN) }
 
     Scaffold(
         topBar = {
@@ -99,7 +105,7 @@ fun HomeScreen(
             contentPadding = PaddingValues(vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            // Free Run Mode Feature Card
+            // Open Exercise (Free Run / Free Walk) Feature Card
             item {
                 AppSectionCard(
                     role = AppCardRole.HIGHLIGHT,
@@ -113,7 +119,7 @@ fun HomeScreen(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "Free Run Mode",
+                            text = "Open Exercise",
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onPrimaryContainer,
@@ -123,15 +129,89 @@ fun HomeScreen(
                     Spacer(modifier = Modifier.height(8.dp))
 
                     Text(
-                        text = "Open-ended run with count-up timer, live GPS route tracking, and automatic mile/km split cues.",
+                        text = "Open-ended count-up timer with live GPS route tracking, Run/Walk switching, and automatic mile/km split cues.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f),
                     )
 
                     Spacer(modifier = Modifier.height(12.dp))
 
+                    // Run / Walk starting mode selector
+                    Surface(
+                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f),
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            val isRunSelected = selectedOpenExerciseType == IntervalType.RUN
+                            Button(
+                                onClick = { selectedOpenExerciseType = IntervalType.RUN },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .heightIn(min = 44.dp),
+                                shape = RoundedCornerShape(10.dp),
+                                colors = if (isRunSelected) {
+                                    ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.primary,
+                                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                                    )
+                                } else {
+                                    ButtonDefaults.buttonColors(
+                                        containerColor = Color.Transparent,
+                                        contentColor = MaterialTheme.colorScheme.onSurface,
+                                    )
+                                },
+                                elevation = null,
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.DirectionsRun,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Run", fontWeight = FontWeight.Bold)
+                            }
+
+                            Button(
+                                onClick = { selectedOpenExerciseType = IntervalType.WALK },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .heightIn(min = 44.dp),
+                                shape = RoundedCornerShape(10.dp),
+                                colors = if (!isRunSelected) {
+                                    ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.primary,
+                                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                                    )
+                                } else {
+                                    ButtonDefaults.buttonColors(
+                                        containerColor = Color.Transparent,
+                                        contentColor = MaterialTheme.colorScheme.onSurface,
+                                    )
+                                },
+                                elevation = null,
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.DirectionsWalk,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Walk", fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
                     Button(
-                        onClick = { onStartWorkoutClick(WorkoutEngine.FREE_RUN_WORKOUT_ID) },
+                        onClick = { onStartOpenExerciseClick(selectedOpenExerciseType) },
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(48.dp),
@@ -140,7 +220,7 @@ fun HomeScreen(
                         Icon(imageVector = Icons.Default.PlayArrow, contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "START FREE RUN",
+                            text = if (selectedOpenExerciseType == IntervalType.WALK) "START FREE WALK" else "START FREE RUN",
                             fontWeight = FontWeight.Bold,
                             fontSize = 15.sp,
                         )
@@ -276,7 +356,7 @@ fun HomeScreen(
                     }
                 }
             } else {
-                items(customWorkouts, key = { it.id }) { workout ->
+                items(customWorkouts, key = { (id) -> id }) { workout ->
                     SavedWorkoutCard(
                         workout = workout,
                         onStartClick = { onStartWorkoutClick(workout.id) },

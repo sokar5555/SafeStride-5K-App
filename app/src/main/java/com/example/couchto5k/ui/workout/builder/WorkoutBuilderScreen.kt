@@ -21,7 +21,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
@@ -35,7 +34,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -49,7 +47,6 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -83,7 +80,6 @@ sealed interface TimePickerTarget {
     data class EditCooldown(val currentDurationSeconds: Int) : TimePickerTarget
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WorkoutBuilderScreen(
     onBack: () -> Unit,
@@ -270,7 +266,7 @@ fun WorkoutBuilderScreen(
                     index = index,
                     totalCount = uiState.middleIntervals.size,
                     isFirst = index == 0,
-                    isLast = index == uiState.middleIntervals.size - 1,
+                    isLast = index == (uiState.middleIntervals.size - 1),
                     onEditClick = {
                         timePickerTarget = TimePickerTarget.EditMiddle(
                             index = index,
@@ -688,7 +684,7 @@ private fun DurationPickerDialog(
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     presets.forEach { (presetSeconds, label) ->
-                        val isSelected = (minutes * 60 + seconds) == presetSeconds
+                        val isSelected = ((minutes * 60) + seconds) == presetSeconds
                         FilterChip(
                             selected = isSelected,
                             onClick = {

@@ -34,14 +34,14 @@ class WorkoutEngineTest {
             WorkoutInterval(1, IntervalType.RUN, 60),    // 1 min
             WorkoutInterval(2, IntervalType.WALK, 90),   // 1.5 min
             WorkoutInterval(3, IntervalType.RUN, 60),    // 1 min
-            WorkoutInterval(4, IntervalType.COOLDOWN, 300) // 5 min
+            WorkoutInterval(4, IntervalType.COOLDOWN, 300), // 5 min
         )
         return TrainingWorkout(
             id = 1L,
             week = 1,
             workoutNumber = 1,
             title = "Week 1, Workout 1",
-            intervals = intervals
+            intervals = intervals,
         )
     }
 
@@ -203,10 +203,104 @@ class WorkoutEngineTest {
         assertEquals(400.0, state.intervalDistancesMeters[0] ?: 0.0, 0.001)
         assertEquals(250.0, state.intervalDistancesMeters[1] ?: 0.0, 0.001)
     }
+
+    @Test
+    fun paceUpdates_areThrottledToEveryThreeSeconds() {
+        workoutEngine.setDistanceUnit(DistanceUnit.KILOMETERS)
+        workoutEngine.startFreeRun(IntervalType.RUN)
+        val startRealtime = SystemClock.elapsedRealtime()
+
+        // At t = 1.0s, first distance arrives -> initial pace latches
+        SystemClock.setCurrentTimeMillis(startRealtime + 1_000L)
+        workoutEngine.updateTime()
+        workoutEngine.addDistance(5.0) // 5m in 1s -> 200 s/km
+        val paceAt1s = workoutEngine.workoutState.value.averagePaceSecondsPerKm
+        val splitPaceAt1s = workoutEngine.workoutState.value.currentSplitPaceSecondsPerKm
+        assertEquals(200.0, paceAt1s, 0.1)
+        assertEquals(200.0, splitPaceAt1s, 0.1)
+
+        // At t = 2.5s (only 1.5s elapsed since last pace update < 3s) -> paces stay unchanged
+        SystemClock.setCurrentTimeMillis(startRealtime + 2_500L)
+        workoutEngine.updateTime()
+        workoutEngine.addDistance(5.0) // total 10m in 2.5s -> would be 250 s/km if unthrottled
+        assertEquals(200.0, workoutEngine.workoutState.value.averagePaceSecondsPerKm, 0.1)
+        assertEquals(200.0, workoutEngine.workoutState.value.currentSplitPaceSecondsPerKm, 0.1)
+
+        // At t = 4.0s (3.0s elapsed since last pace update >= 3s) -> paces refresh
+        SystemClock.setCurrentTimeMillis(startRealtime + 4_000L)
+        workoutEngine.updateTime()
+        assertEquals(400.0, workoutEngine.workoutState.value.averagePaceSecondsPerKm, 0.1)
+        assertEquals(400.0, workoutEngine.workoutState.value.currentSplitPaceSecondsPerKm, 0.1)
+    }
+
+    @Test
+    fun openExercise_startsAsWalk_andSwitchesLiveBetweenWalkAndRun() {
+        workoutEngine.startFreeRun(IntervalType.WALK)
+        val startRealtime = SystemClock.elapsedRealtime()
+
+        val initialState = workoutEngine.workoutState.value
+        assertTrue(initialState.isFreeRun)
+        assertEquals(IntervalType.WALK, initialState.currentInterval?.type)
+        assertEquals("Free walk started", fakeAudioHapticManager.spokenMessages.last())
+
+        // Walk for 60s and 80m
+        SystemClock.setCurrentTimeMillis(startRealtime + 60_000L)
+        workoutEngine.updateTime()
+        workoutEngine.addDistance(80.0)
+
+        // Switch live to RUN
+        workoutEngine.switchOpenExerciseType(IntervalType.RUN)
+        val switchedToRunState = workoutEngine.workoutState.value
+        assertEquals(1, switchedToRunState.currentIntervalIndex)
+        assertEquals(IntervalType.RUN, switchedToRunState.currentInterval?.type)
+        assertEquals("Run", fakeAudioHapticManager.spokenMessages.last())
+        assertEquals(1, switchedToRunState.openExerciseSegments.size)
+        assertEquals(IntervalType.WALK, switchedToRunState.openExerciseSegments[0].type)
+        assertEquals(60_000L, switchedToRunState.openExerciseSegments[0].durationMillis)
+        assertEquals(80.0, switchedToRunState.openExerciseSegments[0].distanceMeters, 0.01)
+
+        // Run for 120s and 300m
+        SystemClock.setCurrentTimeMillis(startRealtime + 180_000L)
+        workoutEngine.updateTime()
+        workoutEngine.addDistance(300.0)
+
+        workoutEngine.completeFreeRun()
+        val completedState = workoutEngine.workoutState.value
+        assertEquals(WorkoutEngineStatus.COMPLETED, completedState.status)
+        assertEquals(2, completedState.openExerciseSegments.size)
+        assertEquals(IntervalType.WALK, completedState.openExerciseSegments[0].type)
+        assertEquals(60_000L, completedState.openExerciseSegments[0].durationMillis)
+        assertEquals(80.0, completedState.openExerciseSegments[0].distanceMeters, 0.01)
+        assertEquals(IntervalType.RUN, completedState.openExerciseSegments[1].type)
+        assertEquals(120_000L, completedState.openExerciseSegments[1].durationMillis)
+        assertEquals(300.0, completedState.openExerciseSegments[1].distanceMeters, 0.01)
+    }
+
+    @Test
+    fun openExercise_pauseDuringSegment_excludesPausedDurationFromSegment() {
+        workoutEngine.startFreeRun(IntervalType.RUN)
+        val t0 = SystemClock.elapsedRealtime()
+
+        // Active for 10s
+        SystemClock.setCurrentTimeMillis(t0 + 10_000L)
+        workoutEngine.pause()
+
+        // Paused for 30s
+        SystemClock.setCurrentTimeMillis(t0 + 40_000L)
+        workoutEngine.resume()
+
+        // Active for 5s more
+        SystemClock.setCurrentTimeMillis(t0 + 45_000L)
+        workoutEngine.switchOpenExerciseType(IntervalType.WALK)
+
+        val segments = workoutEngine.workoutState.value.openExerciseSegments
+        assertEquals(1, segments.size)
+        assertEquals(15_000L, segments[0].durationMillis)
+    }
 }
 
 class FakeAudioHapticManager : AudioHapticManager {
-    override val isTtsReady: StateFlow<Boolean> = MutableStateFlow(true)
+    override val isTtsReady: StateFlow<Boolean> = MutableStateFlow(value = true)
     val spokenMessages = mutableListOf<String>()
     var transitionSoundPlayed = false
     var vibrationTriggered = false

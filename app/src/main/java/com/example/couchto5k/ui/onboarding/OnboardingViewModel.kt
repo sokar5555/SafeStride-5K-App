@@ -85,7 +85,7 @@ class OnboardingViewModel internal constructor(
             if (current.size < 3) {
                 current + day
             } else {
-                current.drop(1).toSet() + day
+                current.asSequence().drop(1).toSet() + day
             }
         }
     }
@@ -118,7 +118,7 @@ class OnboardingViewModel internal constructor(
             settingsRepository.setPreferredWorkoutDays(days)
             settingsRepository.setProgramStartDate(startDate)
             generateScheduleUseCase?.invoke(startDate, days)
-            settingsRepository.setOnboardingComplete(true)
+            settingsRepository.setOnboardingComplete(complete = true)
             onComplete()
         }
     }

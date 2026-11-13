@@ -8,6 +8,7 @@ import com.example.couchto5k.domain.model.IntervalType
 import com.example.couchto5k.domain.model.TrainingWorkout
 import com.example.couchto5k.domain.model.WorkoutInterval
 import com.example.couchto5k.engine.ActiveWorkoutState
+import com.example.couchto5k.engine.OpenExerciseSegment
 import com.example.couchto5k.engine.WorkoutEngine
 import com.example.couchto5k.engine.WorkoutEngineStatus
 import com.example.couchto5k.location.LocationPoint
@@ -56,8 +57,8 @@ class WorkoutHistoryRepositoryTest {
                 WorkoutInterval(0, IntervalType.WARMUP, 300), // 5 min
                 WorkoutInterval(1, IntervalType.RUN, 60),    // 1 min
                 WorkoutInterval(2, IntervalType.WALK, 90),   // 1.5 min
-                WorkoutInterval(3, IntervalType.RUN, 60)     // 1 min
-            )
+                WorkoutInterval(3, IntervalType.RUN, 60),     // 1 min
+            ),
         )
 
         // Simulate completing first 3 intervals and 30 seconds of the 4th
@@ -65,7 +66,7 @@ class WorkoutHistoryRepositoryTest {
             workoutId = 1L,
             totalElapsedMillis = (300 + 60 + 90 + 30) * 1000L,
             startedAt = Instant.now().minusSeconds(480),
-            status = WorkoutEngineStatus.COMPLETED
+            status = WorkoutEngineStatus.COMPLETED,
         )
 
         repository.saveCompletedWorkout(workout, state)
@@ -114,8 +115,8 @@ class WorkoutHistoryRepositoryTest {
                 WorkoutInterval(0, IntervalType.WARMUP, 300), // 5 min
                 WorkoutInterval(1, IntervalType.RUN, 60),    // 1 min
                 WorkoutInterval(2, IntervalType.WALK, 90),   // 1.5 min
-                WorkoutInterval(3, IntervalType.COOLDOWN, 300) // 5 min
-            )
+                WorkoutInterval(3, IntervalType.COOLDOWN, 300), // 5 min
+            ),
         )
 
         // Simulate completing warmup, run, walk, and skipping cooldown immediately (0s in cooldown)
@@ -123,7 +124,7 @@ class WorkoutHistoryRepositoryTest {
             workoutId = 2L,
             totalElapsedMillis = (300 + 60 + 90) * 1000L,
             startedAt = Instant.now().minusSeconds(450),
-            status = WorkoutEngineStatus.COMPLETED
+            status = WorkoutEngineStatus.COMPLETED,
         )
 
         repository.saveCompletedWorkout(workout, state)
@@ -153,18 +154,24 @@ class WorkoutHistoryRepositoryTest {
         val workout = TrainingWorkout(1L, 1, 1, "Test", listOf())
 
         // Old workout
-        repository.saveCompletedWorkout(workout, ActiveWorkoutState(
-            totalElapsedMillis = 1000L,
-            startedAt = Instant.now().minusSeconds(1000),
-            status = WorkoutEngineStatus.COMPLETED
-        ))
+        repository.saveCompletedWorkout(
+            workout,
+            ActiveWorkoutState(
+                totalElapsedMillis = 1000L,
+                startedAt = Instant.now().minusSeconds(1000),
+                status = WorkoutEngineStatus.COMPLETED,
+            ),
+        )
 
         // New workout
-        repository.saveCompletedWorkout(workout, ActiveWorkoutState(
-            totalElapsedMillis = 1000L,
-            startedAt = Instant.now(),
-            status = WorkoutEngineStatus.COMPLETED
-        ))
+        repository.saveCompletedWorkout(
+            workout,
+            ActiveWorkoutState(
+                totalElapsedMillis = 1000L,
+                startedAt = Instant.now(),
+                status = WorkoutEngineStatus.COMPLETED,
+            ),
+        )
 
         val history = repository.getHistory().first()
         assertEquals(2, history.size)
@@ -175,11 +182,14 @@ class WorkoutHistoryRepositoryTest {
     fun deleteWorkout_removesWorkoutAndIntervals() = runTest {
         val workout = TrainingWorkout(1L, 1, 1, "Test", listOf(WorkoutInterval(0, IntervalType.RUN, 60)))
 
-        repository.saveCompletedWorkout(workout, ActiveWorkoutState(
-            totalElapsedMillis = 60000L,
-            startedAt = Instant.now(),
-            status = WorkoutEngineStatus.COMPLETED
-        ))
+        repository.saveCompletedWorkout(
+            workout,
+            ActiveWorkoutState(
+                totalElapsedMillis = 60000L,
+                startedAt = Instant.now(),
+                status = WorkoutEngineStatus.COMPLETED,
+            ),
+        )
 
         val historyBefore = repository.getHistory().first()
         assertEquals(1, historyBefore.size)
@@ -197,7 +207,7 @@ class WorkoutHistoryRepositoryTest {
 
         val routePoints = listOf(
             LocationPoint(37.4219983, -122.084, null, 5f, 1000L),
-            LocationPoint(37.422, -122.085, 10.0, 10f, 2000L)
+            LocationPoint(37.422, -122.085, 10.0, 10f, 2000L),
         )
 
         val state = ActiveWorkoutState(
@@ -205,7 +215,7 @@ class WorkoutHistoryRepositoryTest {
             totalElapsedMillis = 10000L,
             startedAt = Instant.now(),
             status = WorkoutEngineStatus.COMPLETED,
-            routePoints = routePoints
+            routePoints = routePoints,
         )
 
         repository.saveCompletedWorkout(workout, state)
@@ -291,5 +301,74 @@ class WorkoutHistoryRepositoryTest {
         assertEquals(515.0, savedIntervalWorkout.intervals[1].distanceMeters, 0.001)
         assertEquals(235.0, savedIntervalWorkout.intervals[2].distanceMeters, 0.001)
         assertEquals(650.0, savedIntervalWorkout.intervals[3].distanceMeters, 0.001)
+    }
+
+    @Test
+    fun saveWorkout_openExerciseMixedRunAndWalk_persistsSegmentsAndAttributesStatsProperly() = runTest {
+        val openWorkout = WorkoutEngine.createOpenExerciseWorkout(IntervalType.RUN)
+        val state = ActiveWorkoutState(
+            workoutId = WorkoutEngine.FREE_RUN_WORKOUT_ID,
+            isFreeRun = true,
+            totalElapsedMillis = 360_000L,
+            distanceMeters = 830.0,
+            openExerciseSegments = listOf(
+                OpenExerciseSegment(0, IntervalType.RUN, 120_000L, 300.0),
+                OpenExerciseSegment(1, IntervalType.WALK, 60_000L, 80.0),
+                OpenExerciseSegment(2, IntervalType.RUN, 180_000L, 450.0),
+            ),
+            startedAt = Instant.now(),
+            status = WorkoutEngineStatus.COMPLETED,
+        )
+
+        repository.saveCompletedWorkout(openWorkout, state)
+
+        val history = repository.getHistory().first()
+        assertEquals(1, history.size)
+
+        val saved = history.first()
+        assertEquals("Free Run & Walk", saved.workout.title)
+        assertEquals(0L, saved.workout.trainingWorkoutId)
+        assertEquals(360, saved.workout.durationSeconds)
+        assertEquals(300, saved.workout.runningSeconds)
+        assertEquals(60, saved.workout.walkingSeconds)
+        assertEquals(180, saved.workout.longestCompletedRunSeconds)
+        assertEquals(830.0, saved.workout.distanceMeters, 0.01)
+
+        assertEquals(3, saved.intervals.size)
+        assertEquals(IntervalType.RUN, saved.intervals[0].intervalType)
+        assertEquals(120, saved.intervals[0].actualDurationSeconds)
+        assertEquals(300.0, saved.intervals[0].distanceMeters, 0.01)
+
+        assertEquals(IntervalType.WALK, saved.intervals[1].intervalType)
+        assertEquals(60, saved.intervals[1].actualDurationSeconds)
+        assertEquals(80.0, saved.intervals[1].distanceMeters, 0.01)
+
+        assertEquals(IntervalType.RUN, saved.intervals[2].intervalType)
+        assertEquals(180, saved.intervals[2].actualDurationSeconds)
+        assertEquals(450.0, saved.intervals[2].distanceMeters, 0.01)
+    }
+
+    @Test
+    fun saveWorkout_openExerciseWalkOnly_savesAsFreeWalkWithZeroLongestRun() = runTest {
+        val walkWorkout = WorkoutEngine.createOpenExerciseWorkout(IntervalType.WALK)
+        val state = ActiveWorkoutState(
+            workoutId = WorkoutEngine.FREE_RUN_WORKOUT_ID,
+            isFreeRun = true,
+            totalElapsedMillis = 600_000L,
+            distanceMeters = 800.0,
+            openExerciseSegments = listOf(
+                OpenExerciseSegment(0, IntervalType.WALK, 600_000L, 800.0),
+            ),
+            startedAt = Instant.now(),
+            status = WorkoutEngineStatus.COMPLETED,
+        )
+
+        repository.saveCompletedWorkout(walkWorkout, state)
+
+        val saved = repository.getHistory().first().first()
+        assertEquals("Free Walk", saved.workout.title)
+        assertEquals(0, saved.workout.runningSeconds)
+        assertEquals(600, saved.workout.walkingSeconds)
+        assertEquals(0, saved.workout.longestCompletedRunSeconds)
     }
 }

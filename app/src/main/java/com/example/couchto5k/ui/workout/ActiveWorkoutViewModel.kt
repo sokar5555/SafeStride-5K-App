@@ -7,6 +7,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.couchto5k.domain.model.DistanceUnit
+import com.example.couchto5k.domain.model.IntervalType
 import com.example.couchto5k.domain.model.TrainingWorkout
 import com.example.couchto5k.domain.repository.SettingsRepository
 import com.example.couchto5k.domain.repository.TrainingPlanRepository
@@ -49,6 +50,10 @@ class ActiveWorkoutViewModel @Inject constructor(
         ?: savedStateHandle.get<String>("workoutId")?.toLongOrNull()
         ?: -1L
 
+    private val initialIntervalType: IntervalType = savedStateHandle.get<String>("initialType")
+        ?.let { runCatching { IntervalType.valueOf(it) }.getOrNull() }
+        ?: IntervalType.RUN
+
     val workoutState = workoutEngine.workoutState
 
     private val _currentWorkout = MutableStateFlow<TrainingWorkout?>(null)
@@ -74,10 +79,10 @@ class ActiveWorkoutViewModel @Inject constructor(
         viewModelScope.launch {
             workoutState.collectLatest { state ->
                 val workout = _currentWorkout.value
-                if (workout != null && state.workoutId == workout.id) {
+                if ((workout != null) && (state.workoutId == workout.id)) {
                     if (state.status == WorkoutEngineStatus.COMPLETED) {
                         saveWorkoutHistory(workout, state, isCompleted = true)
-                    } else if (state.status == WorkoutEngineStatus.CANCELLED && state.totalElapsedMillis > 0) {
+                    } else if ((state.status == WorkoutEngineStatus.CANCELLED) && (state.totalElapsedMillis > 0)) {
                         saveWorkoutHistory(workout, state, isCompleted = false)
                     }
                 }
@@ -94,8 +99,8 @@ class ActiveWorkoutViewModel @Inject constructor(
         hasSaved = true
         viewModelScope.launch {
             val existingHistory = historyRepository.getHistory().first()
-            val previousBestLongestRun = existingHistory.maxOfOrNull {
-                it.workout.longestCompletedRunSeconds
+            val previousBestLongestRun = existingHistory.maxOfOrNull { (workout) ->
+                workout.longestCompletedRunSeconds
             } ?: 0
 
             historyRepository.saveCompletedWorkout(workout, state)
@@ -106,14 +111,20 @@ class ActiveWorkoutViewModel @Inject constructor(
 
                 val durationSeconds = latestSaved?.durationSeconds
                     ?: maxOf((state.totalElapsedMillis / 1000).toInt(), workout.totalPlannedDurationSeconds)
+                val fallbackLongestOpenRun = state.openExerciseSegments
+                    .asSequence()
+                    .filter { (_, type) -> type == IntervalType.RUN }
+                    .maxOfOrNull { (_, _, durationMillis) -> (durationMillis / 1000L).toInt() }
+                    ?: if (state.currentInterval?.type == IntervalType.RUN) (state.totalElapsedMillis / 1000L).toInt() else 0
                 val longestRunSeconds = latestSaved?.longestCompletedRunSeconds
-                    ?: workout.longestPlannedRunIntervalSeconds
+                    ?: if (state.isFreeRun) fallbackLongestOpenRun else workout.longestPlannedRunIntervalSeconds
                 val distanceMeters = latestSaved?.distanceMeters ?: state.distanceMeters
                 val isNewRecord = (longestRunSeconds > 0) && (longestRunSeconds > previousBestLongestRun)
+                val resolvedTitle = latestSaved?.title ?: workout.title
 
                 _completionSummary.value = WorkoutCompletionSummary(
                     completedWorkoutId = latestSaved?.id,
-                    workoutTitle = workout.title,
+                    workoutTitle = resolvedTitle,
                     distanceMeters = distanceMeters,
                     durationSeconds = durationSeconds,
                     longestRunSeconds = longestRunSeconds,
@@ -125,14 +136,19 @@ class ActiveWorkoutViewModel @Inject constructor(
 
     private fun loadAndStartWorkout() {
         viewModelScope.launch {
-            val workout = if (workoutId == WorkoutEngine.FREE_RUN_WORKOUT_ID) {
-                WorkoutEngine.FREE_RUN_WORKOUT
+            val isOpenExercise = workoutId == WorkoutEngine.FREE_RUN_WORKOUT_ID
+            val workout = if (isOpenExercise) {
+                WorkoutEngine.createOpenExerciseWorkout(initialIntervalType)
             } else {
                 repository.getWorkoutById(workoutId)
             }
             if (workout != null) {
                 _currentWorkout.value = workout
-                workoutEngine.start(workout, isFreeRun = workout.id == WorkoutEngine.FREE_RUN_WORKOUT_ID)
+                if (isOpenExercise) {
+                    workoutEngine.startFreeRun(initialIntervalType)
+                } else {
+                    workoutEngine.start(workout, isFreeRun = false)
+                }
 
                 val startIntent = Intent(application, WorkoutTrackingService::class.java).apply {
                     action = WorkoutTrackingService.ACTION_START
@@ -153,6 +169,7 @@ class ActiveWorkoutViewModel @Inject constructor(
     fun resume() = sendServiceCommand(WorkoutTrackingService.ACTION_RESUME)
     fun skipNext() = workoutEngine.skipToNextInterval()
     fun skipPrevious() = workoutEngine.previousInterval()
+    fun switchOpenExerciseType(type: IntervalType) = workoutEngine.switchOpenExerciseType(type)
     fun completeFreeRun() = workoutEngine.completeFreeRun()
     fun stop() = sendServiceCommand(WorkoutTrackingService.ACTION_STOP)
 

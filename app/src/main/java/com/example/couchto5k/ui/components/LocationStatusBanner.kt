@@ -180,7 +180,7 @@ private fun checkLocationPermission(context: Context): Boolean {
 }
 
 private fun checkGpsEnabled(context: Context): Boolean {
-    val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager
+    val locationManager = (context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager)
         ?: return false
     return try {
         LocationManagerCompat.isLocationEnabled(locationManager)

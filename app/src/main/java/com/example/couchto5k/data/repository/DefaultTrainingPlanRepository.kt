@@ -52,12 +52,12 @@ class DefaultTrainingPlanRepository @Inject constructor(
         val customWorkoutEntity = CustomWorkoutEntity(title = title)
         val workoutId = customWorkoutDao.insertCustomWorkout(customWorkoutEntity)
 
-        val intervalEntities = intervals.mapIndexed { index, interval ->
+        val intervalEntities = intervals.mapIndexed { index, (_, type, durationSeconds) ->
             CustomWorkoutIntervalEntity(
                 customWorkoutId = workoutId,
                 sequence = index,
-                intervalType = interval.type,
-                durationSeconds = interval.durationSeconds,
+                intervalType = type,
+                durationSeconds = durationSeconds,
             )
         }
         customWorkoutDao.insertCustomWorkoutIntervals(intervalEntities)
@@ -318,11 +318,11 @@ class DefaultTrainingPlanRepository @Inject constructor(
         }
 
         fun generateProgressiveWorkoutById(id: Long): TrainingWorkout? {
-            if (id <= 27L || id >= CUSTOM_WORKOUT_OFFSET) return null
+            if (id !in (28L until CUSTOM_WORKOUT_OFFSET)) return null
             val weekNumber = ((id - 1L) / 3L).toInt() + 1
             val beyondWeeks = weekNumber - 9
-            if (beyondWeeks <= 0 || beyondWeeks > 52) return null
-            return generateProgressiveWeeks(beyondWeeks).find { it.id == id }
+            if (beyondWeeks !in 1..52) return null
+            return generateProgressiveWeeks(beyondWeeks).find { (workoutId) -> workoutId == id }
         }
     }
 }

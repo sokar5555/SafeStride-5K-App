@@ -49,12 +49,12 @@ class StatsViewModel @Inject constructor(
                 weeklyDistance = statsData.weeklyDistance,
                 timeOfDayDistribution = statsData.timeOfDayDistribution,
                 programProgress = statsData.programProgress,
-                distanceUnit = distanceUnit
+                distanceUnit = distanceUnit,
             )
         }
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
-        initialValue = StatsUiState.Loading
+        initialValue = StatsUiState.Loading,
     )
 }

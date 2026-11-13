@@ -2,15 +2,11 @@ package com.example.couchto5k.ui.stats
 
 import com.example.couchto5k.domain.model.DistanceUnit
 import com.example.couchto5k.domain.model.TrainingWorkout
-import com.example.couchto5k.domain.model.UserStats
 import com.example.couchto5k.domain.model.WorkoutInterval
 import com.example.couchto5k.domain.repository.SettingsRepository
 import com.example.couchto5k.domain.repository.TrainingPlanRepository
 import com.example.couchto5k.domain.repository.WorkoutHistoryRepository
 import com.example.couchto5k.domain.usecase.GetStatsUseCase
-import com.example.couchto5k.domain.usecase.StatsData
-import com.example.couchto5k.domain.usecase.TimeOfDay
-import com.example.couchto5k.domain.usecase.TimeOfDayCount
 import com.example.couchto5k.engine.ActiveWorkoutState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -23,7 +19,6 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import java.time.DayOfWeek
@@ -46,7 +41,7 @@ class StatsViewModelTest {
         fakeHistoryRepository = FakeWorkoutHistoryRepository()
         fakeTrainingPlanRepository = FakeTrainingPlanRepository()
         fakeSettingsRepository = FakeSettingsRepository()
-        getStatsUseCase = GetStatsUseCase(fakeHistoryRepository, fakeTrainingPlanRepository)
+        getStatsUseCase = GetStatsUseCase(fakeHistoryRepository, fakeTrainingPlanRepository, fakeSettingsRepository)
     }
 
     @After

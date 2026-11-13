@@ -1,16 +1,22 @@
 package com.example.couchto5k.domain.usecase
 
+import com.example.couchto5k.data.repository.DefaultTrainingPlanRepository
 import com.example.couchto5k.domain.model.LongestRunRecordPoint
 import com.example.couchto5k.domain.model.ProgramProgress
 import com.example.couchto5k.domain.model.RunningProgression
 import com.example.couchto5k.domain.model.UserStats
 import com.example.couchto5k.domain.model.WeeklyDistancePoint
+import com.example.couchto5k.domain.repository.SettingsRepository
 import com.example.couchto5k.domain.repository.TrainingPlanRepository
 import com.example.couchto5k.domain.repository.WorkoutHistoryRepository
+import com.example.couchto5k.engine.WorkoutEngineStatus
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import java.time.DayOfWeek
+import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
 import java.time.temporal.TemporalAdjusters
 import javax.inject.Inject
 
@@ -27,16 +33,29 @@ data class TimeOfDayCount(
     val percentage: Float,
 )
 
-
 class GetStatsUseCase @Inject constructor(
     private val workoutHistoryRepository: WorkoutHistoryRepository,
     private val trainingPlanRepository: TrainingPlanRepository,
+    private val settingsRepository: SettingsRepository,
 ) {
+    private var todayProvider: () -> LocalDate = { LocalDate.now() }
+
+    internal constructor(
+        workoutHistoryRepository: WorkoutHistoryRepository,
+        trainingPlanRepository: TrainingPlanRepository,
+        settingsRepository: SettingsRepository,
+        todayProvider: () -> LocalDate,
+    ) : this(workoutHistoryRepository, trainingPlanRepository, settingsRepository) {
+        this.todayProvider = todayProvider
+    }
+
     fun invoke(): Flow<StatsData?> {
         return combine(
             workoutHistoryRepository.getHistory(),
             trainingPlanRepository.getAllWorkouts(),
-        ) { history, allWorkouts ->
+            settingsRepository.programStartDate,
+            settingsRepository.progressiveWeeksExtension,
+        ) { history, allWorkouts, programStartDate, progressiveWeeksExtension ->
             if (history.isEmpty()) return@combine null
 
             // 1. Overall Stats
@@ -50,7 +69,7 @@ class GetStatsUseCase @Inject constructor(
             } else {
                 0.0
             }
-            val longestWorkoutDurationSeconds = history.maxOfOrNull { it.workout.durationSeconds } ?: 0
+            val longestWorkoutDurationSeconds = history.maxOfOrNull { (workout) -> workout.durationSeconds } ?: 0
 
             val userStats = UserStats(
                 completedWorkoutsCount = completedWorkoutsCount,
@@ -59,17 +78,18 @@ class GetStatsUseCase @Inject constructor(
                 totalRunningSeconds = totalRunningSeconds,
                 totalWalkingSeconds = totalWalkingSeconds,
                 aggregateAveragePaceSecondsPerKm = aggregateAveragePaceSecondsPerKm,
-                longestWorkoutDurationSeconds = longestWorkoutDurationSeconds
+                longestWorkoutDurationSeconds = longestWorkoutDurationSeconds,
             )
 
             // 2. Running Progression
-            val sortedHistory = history.sortedBy { it.workout.completedAt ?: it.workout.startedAt }
-            val startingLongestRunSeconds = sortedHistory.firstOrNull()?.workout?.longestCompletedRunSeconds ?: 60
+            val sortedHistory = history.sortedBy { (workout) -> workout.completedAt ?: workout.startedAt }
+            val runningWorkouts = sortedHistory.filter { (workout) -> workout.longestCompletedRunSeconds > 0 }
+            val startingLongestRunSeconds = runningWorkouts.firstOrNull()?.workout?.longestCompletedRunSeconds ?: 0
 
             var currentMax = 0
             val recordHistory = mutableListOf<LongestRunRecordPoint>()
 
-            for (item in sortedHistory) {
+            for (item in runningWorkouts) {
                 val runSec = item.workout.longestCompletedRunSeconds
                 if (runSec > currentMax) {
                     currentMax = runSec
@@ -80,8 +100,8 @@ class GetStatsUseCase @Inject constructor(
                         workoutId = item.workout.id,
                         workoutTitle = item.workout.title,
                         completedAt = item.workout.completedAt ?: item.workout.startedAt,
-                        longestRunSeconds = currentMax
-                    )
+                        longestRunSeconds = currentMax,
+                    ),
                 )
             }
 
@@ -96,7 +116,7 @@ class GetStatsUseCase @Inject constructor(
                 startingLongestRunSeconds = startingLongestRunSeconds,
                 currentLongestRunSeconds = currentLongestRunSeconds,
                 improvementSeconds = improvementSeconds,
-                recordHistory = recordHistory
+                recordHistory = recordHistory,
             )
 
             // 3. Weekly Distance
@@ -106,7 +126,7 @@ class GetStatsUseCase @Inject constructor(
             sortedHistory.forEach { item ->
                 val instant = item.workout.completedAt ?: item.workout.startedAt
                 val zdt = instant.atZone(ZoneId.systemDefault())
-                val startOfWeek = zdt.with(TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY))
+                val startOfWeek = zdt.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
                 val weekLabel = "Week of " + formatter.format(startOfWeek)
 
                 weeklyDistanceMap[weekLabel] = (weeklyDistanceMap[weekLabel] ?: 0.0) + item.workout.distanceMeters
@@ -121,7 +141,7 @@ class GetStatsUseCase @Inject constructor(
                 TimeOfDay.MORNING to 0,
                 TimeOfDay.AFTERNOON to 0,
                 TimeOfDay.EVENING to 0,
-                TimeOfDay.NIGHT to 0
+                TimeOfDay.NIGHT to 0,
             )
 
             history.forEach { item ->
@@ -139,27 +159,44 @@ class GetStatsUseCase @Inject constructor(
                 TimeOfDayCount(
                     timeOfDay = slot,
                     count = count,
-                    percentage = count.toFloat() / completedWorkoutsCount
+                    percentage = count.toFloat() / completedWorkoutsCount,
                 )
             }
 
-            // 5. Program Progress
-            val totalProgramWorkoutsCount = allWorkouts.size
+            // 5. Program Progress (count distinct completed official workouts against configured total)
+            val extensionWeeks = progressiveWeeksExtension.coerceAtLeast(0)
+            val progressiveWorkouts = DefaultTrainingPlanRepository.generateProgressiveWeeks(extensionWeeks)
+            val officialWorkouts = allWorkouts + progressiveWorkouts
+            val officialWorkoutIds = officialWorkouts.asSequence().map { it.id }.toSet()
+
+            val totalProgramWorkoutsCount = officialWorkouts.size
+            val completedOfficialWorkoutIds = history
+                .asSequence()
+                .filter { it.workout.status == WorkoutEngineStatus.COMPLETED }
+                .map { it.workout.trainingWorkoutId }
+                .filter { it in officialWorkoutIds }
+                .toSet()
+
+            val officialCompletedCount = completedOfficialWorkoutIds.size
             val completionPercentage = if (totalProgramWorkoutsCount > 0) {
-                (completedWorkoutsCount.toFloat() / totalProgramWorkoutsCount).coerceAtMost(1f)
+                (officialCompletedCount.toFloat() / totalProgramWorkoutsCount).coerceIn(0f, 1f)
             } else {
                 0f
             }
 
-            val lastWorkoutId = sortedHistory.lastOrNull()?.workout?.trainingWorkoutId
-            val lastWorkout = allWorkouts.find { it.id == lastWorkoutId }
-            val currentWeekNumber = lastWorkout?.week ?: 1
+            val baseWeeksCount = allWorkouts.maxOfOrNull { it.week } ?: 9
+            val totalProgramWeeks = (baseWeeksCount + extensionWeeks).coerceAtLeast(1)
+            val currentWeekNumber = calculateCurrentProgramWeek(
+                programStartDate = programStartDate,
+                today = todayProvider(),
+                totalProgramWeeks = totalProgramWeeks,
+            )
 
             val programProgress = ProgramProgress(
-                completedWorkoutsCount = completedWorkoutsCount,
+                completedWorkoutsCount = officialCompletedCount,
                 totalProgramWorkoutsCount = totalProgramWorkoutsCount,
                 currentWeekNumber = currentWeekNumber,
-                completionPercentage = completionPercentage
+                completionPercentage = completionPercentage,
             )
 
             StatsData(
@@ -167,9 +204,21 @@ class GetStatsUseCase @Inject constructor(
                 runningProgression = runningProgression,
                 weeklyDistance = weeklyDistance,
                 timeOfDayDistribution = timeOfDayDistribution,
-                programProgress = programProgress
+                programProgress = programProgress,
             )
         }
+    }
+
+    private fun calculateCurrentProgramWeek(
+        programStartDate: LocalDate?,
+        today: LocalDate,
+        totalProgramWeeks: Int,
+    ): Int {
+        if ((programStartDate == null) || today.isBefore(programStartDate)) return 1
+        val startWeekSunday = programStartDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.SUNDAY))
+        val currentWeekSunday = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.SUNDAY))
+        val weeksElapsed = ChronoUnit.WEEKS.between(startWeekSunday, currentWeekSunday).toInt().coerceAtLeast(0)
+        return (weeksElapsed + 1).coerceIn(1, totalProgramWeeks)
     }
 }
 

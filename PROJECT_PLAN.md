@@ -664,20 +664,20 @@ Tasks:
 
 Done when: Free Run mode counts up with audio split cues, 10% progressive plan extends calendar beyond 5K, current mile split pace displays on active run, per-interval distances show in history, calendar scrolling is transient, and pace is capped at 300 min/mi.
 
-### Phase 8.6 — Active Run UX Polish, Open Exercise Modes & Accurate Program Progress
+### Phase 8.6 — Active Run UX Polish, Open Exercise Modes & Accurate Program Progress (Completed)
 Tasks:
-- [ ] **Remove Open-Ended Timer Pill Label**:
+- [x] **Remove Open-Ended Timer Pill Label**:
   - Remove the `"Open-Ended Count-Up Timer"` label/pill on `ActiveWorkoutScreen` during open exercise (Free Run / Free Walk).
-- [ ] **3-Second Pace Display Throttle**:
+- [x] **3-Second Pace Display Throttle**:
   - Update both `AVG PACE` and `THIS MILE/KM PACE` on `ActiveWorkoutScreen` (and active notification pace display) once every **3 seconds** instead of every 100ms/1s tick, while keeping timer and distance updates smooth.
-- [ ] **Keep & Restyle Complete Button (Remove Redundant Finish)**:
+- [x] **Keep & Restyle Complete Button (Remove Redundant Finish)**:
   - Remove the redundant top-bar `"FINISH"` action during open exercise (leaving the top-left close/cancel action).
   - Keep the `"COMPLETE"` button at the bottom and redesign its shape, sizing, and alignment to be visually consistent and balanced with the Pause/Resume control.
-- [ ] **Open Exercise Run / Walk Selection & Live Switching**:
+- [x] **Open Exercise Run / Walk Selection & Live Switching**:
   - Allow choosing **Run** or **Walk** before starting an open exercise on `HomeScreen`.
   - Allow toggling between **Run** and **Walk** live mid-workout on `ActiveWorkoutScreen`, recording separate `IntervalType.RUN` and `IntervalType.WALK` segments with per-segment duration and distance in `WorkoutEngine` and Room.
   - Attribute `WALK` segments to `walkingSeconds` only, and `RUN` segments to `runningSeconds` and `longestCompletedRunSeconds` / Running Progression records.
-- [ ] **Accurate Program Progress in Stats**:
+- [x] **Accurate Program Progress in Stats**:
   - Update `GetStatsUseCase` so `totalProgramWorkoutsCount` reflects the full configured program length (`27 + progressiveWeeksExtension * 3`, e.g., `39` for a 13-week program).
   - Count only **distinct completed official program workouts** (`trainingWorkoutId in 1..totalProgramWorkoutsCount` with `WorkoutEngineStatus.COMPLETED`), excluding open exercises (Free Run/Walk), custom workouts, cancelled sessions, and repeated workouts.
   - Calculate `currentWeekNumber` from the calendar start week (`SettingsRepository.programStartDate` relative to today's week, clamped to `1..(9 + progressiveWeeksExtension)` and defaulting to `1` if unset or before the start date).

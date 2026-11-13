@@ -12,6 +12,7 @@ import com.example.couchto5k.data.local.entity.LocationPointEntity
 import com.example.couchto5k.domain.model.TrainingWorkout
 import com.example.couchto5k.domain.repository.WorkoutHistoryRepository
 import com.example.couchto5k.engine.ActiveWorkoutState
+import com.example.couchto5k.engine.OpenExerciseSegment
 import com.example.couchto5k.engine.WorkoutEngineStatus
 import com.example.couchto5k.location.LocationPoint
 import kotlinx.coroutines.flow.Flow
@@ -49,29 +50,73 @@ class DefaultWorkoutHistoryRepository @Inject constructor(
         state: ActiveWorkoutState,
     ) {
         val totalElapsedSeconds = (state.totalElapsedMillis / 1000).toInt()
-        val isFreeRun = state.isFreeRun || workout.id == 0L || workout.title.equals("Free Run", ignoreCase = true)
+        val isFreeRun = state.isFreeRun ||
+            (workout.id == 0L) ||
+            workout.title.equals("Free Run", ignoreCase = true) ||
+            workout.title.equals("Free Walk", ignoreCase = true)
 
         val completedIntervals = mutableListOf<CompletedIntervalEntity>()
         var longestRunSeconds = 0
         var currentContinuousRunSeconds = 0
         var runningSeconds = 0
         var walkingSeconds = 0
+        var resolvedOpenExerciseTitle = "Free Run"
 
         if (isFreeRun) {
-            runningSeconds = totalElapsedSeconds
-            longestRunSeconds = totalElapsedSeconds
-            val freeRunIntervalDistance = state.intervalDistancesMeters[0] ?: state.distanceMeters
-            completedIntervals.add(
-                CompletedIntervalEntity(
-                    completedWorkoutId = 0,
-                    sequence = 0,
-                    intervalType = IntervalType.RUN,
-                    plannedDurationSeconds = totalElapsedSeconds,
-                    actualDurationSeconds = totalElapsedSeconds,
-                    distanceMeters = freeRunIntervalDistance,
-                    completed = state.status == WorkoutEngineStatus.COMPLETED,
-                ),
-            )
+            val segments = state.openExerciseSegments.ifEmpty {
+                val fallbackType = state.currentInterval?.type
+                    ?: workout.intervals.firstOrNull()?.type
+                    ?: IntervalType.RUN
+                val fallbackDistance = state.intervalDistancesMeters[0] ?: state.distanceMeters
+                listOf(
+                    OpenExerciseSegment(
+                        sequence = 0,
+                        type = fallbackType,
+                        durationMillis = state.totalElapsedMillis,
+                        distanceMeters = fallbackDistance,
+                    ),
+                )
+            }
+
+            val isCompleted = state.status == WorkoutEngineStatus.COMPLETED
+            for ((index, segment) in segments.withIndex()) {
+                val actualDuration = (segment.durationMillis / 1000L).toInt()
+                val segmentType = if (segment.type == IntervalType.WALK) IntervalType.WALK else IntervalType.RUN
+
+                completedIntervals.add(
+                    CompletedIntervalEntity(
+                        completedWorkoutId = 0,
+                        sequence = index,
+                        intervalType = segmentType,
+                        plannedDurationSeconds = actualDuration,
+                        actualDurationSeconds = actualDuration,
+                        distanceMeters = segment.distanceMeters,
+                        completed = isCompleted,
+                    ),
+                )
+
+                if (segmentType == IntervalType.RUN) {
+                    runningSeconds += actualDuration
+                    currentContinuousRunSeconds += actualDuration
+                    if (currentContinuousRunSeconds > longestRunSeconds) {
+                        longestRunSeconds = currentContinuousRunSeconds
+                    }
+                    if (!isCompleted) {
+                        currentContinuousRunSeconds = 0
+                    }
+                } else {
+                    walkingSeconds += actualDuration
+                    currentContinuousRunSeconds = 0
+                }
+            }
+
+            val hasRun = segments.any { it.type == IntervalType.RUN }
+            val hasWalk = segments.any { it.type == IntervalType.WALK }
+            resolvedOpenExerciseTitle = when {
+                hasRun && hasWalk -> "Free Run & Walk"
+                hasWalk -> "Free Walk"
+                else -> "Free Run"
+            }
         } else {
             // Calculate actual interval durations and completion status
             var accumulatedTime = 0
@@ -123,7 +168,7 @@ class DefaultWorkoutHistoryRepository @Inject constructor(
         }
 
         val totalWorkoutDurationSeconds = maxOf(totalElapsedSeconds, completedIntervals.sumOf { it.actualDurationSeconds })
-        val averagePaceSecondsPerKm = if (state.distanceMeters > 0.001 && totalWorkoutDurationSeconds > 0) {
+        val averagePaceSecondsPerKm = if ((state.distanceMeters > 0.001) && (totalWorkoutDurationSeconds > 0)) {
             totalWorkoutDurationSeconds / (state.distanceMeters / 1000.0)
         } else {
             0.0
@@ -132,7 +177,7 @@ class DefaultWorkoutHistoryRepository @Inject constructor(
         val entity = CompletedWorkoutEntity(
             trainingWorkoutId = if (isFreeRun) 0L else workout.id,
             scheduledWorkoutId = null,
-            title = if (isFreeRun) "Free Run" else workout.title,
+            title = if (isFreeRun) resolvedOpenExerciseTitle else workout.title,
             startedAt = state.startedAt,
             completedAt = Instant.now(),
             durationSeconds = totalWorkoutDurationSeconds,
@@ -157,7 +202,7 @@ class DefaultWorkoutHistoryRepository @Inject constructor(
                 latitude = point.latitude,
                 longitude = point.longitude,
                 altitude = point.altitude,
-                accuracyMeters = point.accuracyMeters
+                accuracyMeters = point.accuracyMeters,
             )
         }
         if (locationPoints.isNotEmpty()) {

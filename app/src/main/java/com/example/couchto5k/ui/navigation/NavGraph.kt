@@ -17,6 +17,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.example.couchto5k.domain.model.IntervalType
+import com.example.couchto5k.engine.WorkoutEngine
 import com.example.couchto5k.ui.calendar.CalendarScreen
 import com.example.couchto5k.ui.history.HistoryScreen
 import com.example.couchto5k.ui.history.WorkoutDetailScreen
@@ -81,6 +83,9 @@ fun AppNavGraph(
                 },
                 onStartWorkoutClick = { workoutId ->
                     navController.navigate("active_workout/$workoutId")
+                },
+                onStartOpenExerciseClick = { initialType ->
+                    navController.navigate("active_workout/${WorkoutEngine.FREE_RUN_WORKOUT_ID}?initialType=${initialType.name}")
                 },
                 onSettingsClick = {
                     navController.navigate("settings")
@@ -148,8 +153,14 @@ fun AppNavGraph(
             )
         }
         composable(
-            route = "active_workout/{workoutId}",
-            arguments = listOf(navArgument("workoutId") { type = NavType.LongType }),
+            route = "active_workout/{workoutId}?initialType={initialType}",
+            arguments = listOf(
+                navArgument("workoutId") { type = NavType.LongType },
+                navArgument("initialType") {
+                    type = NavType.StringType
+                    defaultValue = IntervalType.RUN.name
+                },
+            ),
         ) {
             ActiveWorkoutScreen(
                 onExit = {

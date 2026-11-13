@@ -254,7 +254,7 @@ private fun TimeOfDayHeatmapSection(distribution: List<TimeOfDayCount>) {
         cornerRadius = 16.dp,
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            val maxCount = distribution.maxOfOrNull { it.count }?.coerceAtLeast(1) ?: 1
+            val maxCount = distribution.maxOfOrNull { (_, count) -> count }?.coerceAtLeast(1) ?: 1
 
             distribution.forEach { slotCount ->
                 Row(

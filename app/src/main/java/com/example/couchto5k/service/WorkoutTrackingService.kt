@@ -11,6 +11,7 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.example.couchto5k.MainActivity
 import com.example.couchto5k.domain.model.DistanceUnit
+import com.example.couchto5k.domain.model.IntervalType
 import com.example.couchto5k.domain.repository.SettingsRepository
 import com.example.couchto5k.engine.ActiveWorkoutState
 import com.example.couchto5k.engine.WorkoutEngine
@@ -32,7 +33,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
-import java.util.Locale
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -55,6 +55,9 @@ class WorkoutTrackingService : Service() {
     private val locationFilter = LocationFilter()
 
     private var isTrackingLocation = false
+    private var lastNotificationSeconds: Int = -1
+    private var lastNotificationStatus: WorkoutEngineStatus? = null
+    private var lastNotificationIntervalType: IntervalType? = null
 
     companion object {
         const val ACTION_START = "ACTION_START"
@@ -85,14 +88,29 @@ class WorkoutTrackingService : Service() {
             workoutEngine.workoutState.collectLatest { state ->
                 when (state.status) {
                     WorkoutEngineStatus.RUNNING -> {
-                        updateNotification(state)
+                        val elapsedSeconds = (state.totalElapsedMillis / 1000).toInt()
+                        val intervalType = state.currentInterval?.type
+                        if (
+                            (lastNotificationStatus != state.status) ||
+                            (lastNotificationIntervalType != intervalType) ||
+                            (elapsedSeconds != lastNotificationSeconds)
+                        ) {
+                            lastNotificationStatus = state.status
+                            lastNotificationIntervalType = intervalType
+                            lastNotificationSeconds = elapsedSeconds
+                            updateNotification(state)
+                        }
                         startLocationTracking()
                     }
                     WorkoutEngineStatus.PAUSED -> {
-                        updateNotification(state)
+                        if (lastNotificationStatus != state.status) {
+                            lastNotificationStatus = state.status
+                            updateNotification(state)
+                        }
                         stopLocationTracking()
                     }
                     WorkoutEngineStatus.COMPLETED, WorkoutEngineStatus.CANCELLED -> {
+                        lastNotificationStatus = state.status
                         stopLocationTracking()
                         stopForeground(STOP_FOREGROUND_REMOVE)
                         stopSelf()
@@ -204,7 +222,11 @@ class WorkoutTrackingService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
-        val intervalName = if (state.isFreeRun) "FREE RUN" else (state.currentInterval?.type?.name ?: "WORKOUT")
+        val intervalName = if (state.isFreeRun) {
+            if (state.currentInterval?.type == IntervalType.WALK) "FREE WALK" else "FREE RUN"
+        } else {
+            state.currentInterval?.type?.name ?: "WORKOUT"
+        }
         val remainingSeconds = (state.intervalRemainingMillis / 1000).toInt()
         val formattedRemaining = formatDuration(remainingSeconds)
 
