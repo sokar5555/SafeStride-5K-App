@@ -56,10 +56,14 @@ class WorkoutEngine internal constructor(
     @Volatile
     private var currentDistanceUnit: DistanceUnit = DistanceUnit.MILES
 
+    @Volatile
+    private var countdownVoiceCuesEnabled: Boolean = true
+
     // Core timing anchors
     private var intervalStartRealtimeMillis: Long = 0L
     private var intervalDurationMillis: Long = 0L
     private var totalElapsedBeforeCurrentIntervalMillis: Long = 0L
+    private val triggeredCountdownThresholdsMillis = mutableSetOf<Long>()
 
     // For pause/resume logic
     private var pauseStartRealtimeMillis: Long = 0L
@@ -78,11 +82,35 @@ class WorkoutEngine internal constructor(
 
     private val engineScope = CoroutineScope(Dispatchers.Main)
 
+    private data class CountdownCueThreshold(
+        val remainingMillis: Long,
+        val minIntervalDurationMillis: Long,
+        val spokenMessage: String,
+    )
+
     companion object {
         const val FREE_RUN_WORKOUT_ID = 0L
         const val METERS_PER_MILE = 1609.34
         const val METERS_PER_KM = 1000.0
         const val PACE_UPDATE_INTERVAL_MS = 3_000L
+
+        private val COUNTDOWN_CUES = listOf(
+            CountdownCueThreshold(
+                remainingMillis = 30_000L,
+                minIntervalDurationMillis = 45_000L,
+                spokenMessage = "30 seconds left",
+            ),
+            CountdownCueThreshold(
+                remainingMillis = 10_000L,
+                minIntervalDurationMillis = 15_000L,
+                spokenMessage = "10 seconds left",
+            ),
+            CountdownCueThreshold(
+                remainingMillis = 5_000L,
+                minIntervalDurationMillis = 10_000L,
+                spokenMessage = "5 seconds",
+            ),
+        )
 
         fun createOpenExerciseWorkout(initialType: IntervalType = IntervalType.RUN): TrainingWorkout {
             val resolvedType = if (initialType == IntervalType.WALK) IntervalType.WALK else IntervalType.RUN
@@ -106,11 +134,20 @@ class WorkoutEngine internal constructor(
                     currentDistanceUnit = unit
                 }
             }
+            engineScope.launch {
+                settingsRepository.countdownVoiceCuesEnabled.collectLatest { enabled ->
+                    countdownVoiceCuesEnabled = enabled
+                }
+            }
         }
     }
 
     fun setDistanceUnit(unit: DistanceUnit) {
         currentDistanceUnit = unit
+    }
+
+    fun setCountdownVoiceCuesEnabled(enabled: Boolean) {
+        countdownVoiceCuesEnabled = enabled
     }
 
     private fun getSplitThresholdMeters(): Double {
@@ -146,6 +183,7 @@ class WorkoutEngine internal constructor(
         intervalStartRealtimeMillis = SystemClock.elapsedRealtime()
         totalElapsedBeforeCurrentIntervalMillis = 0L
         accumulatedPauseMillisInCurrentInterval = 0L
+        triggeredCountdownThresholdsMillis.clear()
 
         splitStartElapsedMillis = 0L
         completedSplitsCount = 0
@@ -375,6 +413,7 @@ class WorkoutEngine internal constructor(
 
         stopTicker()
         activeWorkout = null
+        triggeredCountdownThresholdsMillis.clear()
         _workoutState.update {
             it.copy(
                 isPaused = true,
@@ -406,6 +445,7 @@ class WorkoutEngine internal constructor(
         }
 
         stopTicker()
+        triggeredCountdownThresholdsMillis.clear()
         audioHapticManager.playTransitionSound()
         audioHapticManager.vibrateTransition()
         audioHapticManager.speak("Workout complete!")
@@ -468,6 +508,7 @@ class WorkoutEngine internal constructor(
         intervalStartRealtimeMillis = SystemClock.elapsedRealtime()
         totalElapsedBeforeCurrentIntervalMillis = exactTotalElapsedSoFarSeconds * 1000L
         accumulatedPauseMillisInCurrentInterval = 0L
+        triggeredCountdownThresholdsMillis.clear()
 
         val wasPaused = currentState.isPaused
 
@@ -632,6 +673,7 @@ class WorkoutEngine internal constructor(
                 completeWorkout()
             }
         } else {
+            checkAndEmitCountdownCue(remainingMillis)
             _workoutState.update {
                 it.copy(
                     intervalRemainingMillis = remainingMillis,
@@ -642,5 +684,19 @@ class WorkoutEngine internal constructor(
                 )
             }
         }
+    }
+
+    private fun checkAndEmitCountdownCue(remainingMillis: Long) {
+        if (!countdownVoiceCuesEnabled || (remainingMillis <= 0L)) return
+
+        val newlyCrossed = COUNTDOWN_CUES.filter { cue ->
+            (intervalDurationMillis > cue.minIntervalDurationMillis) &&
+                (remainingMillis <= cue.remainingMillis) &&
+                (cue.remainingMillis !in triggeredCountdownThresholdsMillis)
+        }
+        if (newlyCrossed.isEmpty()) return
+
+        newlyCrossed.forEach { triggeredCountdownThresholdsMillis.add(it.remainingMillis) }
+        audioHapticManager.speak(newlyCrossed.last().spokenMessage)
     }
 }

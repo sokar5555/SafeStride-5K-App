@@ -1,5 +1,7 @@
 package com.example.couchto5k.ui.settings
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -23,9 +25,15 @@ import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DeleteForever
+import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.FileUpload
+import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.NotificationsActive
+import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.RecordVoiceOver
+import androidx.compose.material.icons.filled.SaveAlt
 import androidx.compose.material.icons.filled.Straighten
+import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Vibration
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -37,6 +45,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
@@ -57,6 +66,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.couchto5k.domain.model.DistanceUnit
+import com.example.couchto5k.domain.model.ThemeMode
 import com.example.couchto5k.ui.components.AppCardRole
 import com.example.couchto5k.ui.components.AppHeaderBanner
 import com.example.couchto5k.ui.components.AppSectionCard
@@ -73,17 +83,33 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val distanceUnit by viewModel.distanceUnit.collectAsState()
+    val themeMode by viewModel.themeMode.collectAsState()
     val voiceCuesEnabled by viewModel.voiceCuesEnabled.collectAsState()
+    val countdownVoiceCuesEnabled by viewModel.countdownVoiceCuesEnabled.collectAsState()
+    val audioDuckingEnabled by viewModel.audioDuckingEnabled.collectAsState()
     val soundCuesEnabled by viewModel.soundCuesEnabled.collectAsState()
     val vibrationEnabled by viewModel.vibrationEnabled.collectAsState()
     val preferredDays by viewModel.preferredWorkoutDays.collectAsState()
     val programStartDate by viewModel.programStartDate.collectAsState()
     val progressiveWeeks by viewModel.progressiveWeeksExtension.collectAsState()
     val longRunDay by viewModel.longRunDay.collectAsState()
+    val backupUiState by viewModel.backupUiState.collectAsState()
 
     var showDatePicker by remember { mutableStateOf(value = false) }
     var showResetConfirmDialog by remember { mutableStateOf(value = false) }
     var showResetSuccessBanner by remember { mutableStateOf(value = false) }
+
+    val exportBackupLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/json"),
+    ) { uri ->
+        uri?.let { viewModel.exportBackup(it.toString()) }
+    }
+
+    val importBackupLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        uri?.let { viewModel.prepareImportBackup(it.toString()) }
+    }
 
     val dateFormatter = remember { DateTimeFormatter.ofPattern("EEE, MMM d, yyyy") }
     val extensionOptions = listOf(0, 4, 8, 12)
@@ -127,7 +153,57 @@ fun SettingsScreen(
                 }
             }
 
-            // 1. Distance Units Section
+            // 1. Appearance Section
+            AppSectionCard(
+                title = "Appearance",
+                icon = Icons.Default.Palette,
+                iconContentDescription = "Appearance theme icon",
+                role = AppCardRole.CONTENT,
+            ) {
+                Text(
+                    text = "Choose Light, Dark, or follow your device system theme.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    val themeOptions = listOf(
+                        ThemeMode.LIGHT to "Light",
+                        ThemeMode.DARK to "Dark",
+                        ThemeMode.SYSTEM to "System",
+                    )
+                    themeOptions.forEach { (mode, label) ->
+                        val isSelected = themeMode == mode
+                        FilterChip(
+                            selected = isSelected,
+                            onClick = { viewModel.setThemeMode(mode) },
+                            label = {
+                                Text(
+                                    text = label,
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                            },
+                            leadingIcon = if (isSelected) {
+                                {
+                                    Icon(
+                                        imageVector = Icons.Default.Check,
+                                        contentDescription = "$label theme selected",
+                                        modifier = Modifier.size(FilterChipDefaults.IconSize),
+                                    )
+                                }
+                            } else null,
+                            modifier = Modifier
+                                .weight(1f)
+                                .heightIn(min = 48.dp),
+                        )
+                    }
+                }
+            }
+
+            // 2. Distance Units Section
             AppSectionCard(
                 title = "Distance Units",
                 icon = Icons.Default.Straighten,
@@ -192,7 +268,7 @@ fun SettingsScreen(
                 }
             }
 
-            // 2. Audio & Haptics Section
+            // 3. Audio & Haptics Section
             AppSectionCard(
                 title = "Audio & Haptic Cues",
                 icon = Icons.AutoMirrored.Filled.VolumeUp,
@@ -206,6 +282,29 @@ fun SettingsScreen(
                     subtitle = "Spoken announcements at each interval and mile/km split",
                     checked = voiceCuesEnabled,
                     onCheckedChange = viewModel::setVoiceCuesEnabled,
+                )
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                SettingsToggleRow(
+                    icon = Icons.Default.Timer,
+                    iconDescription = "Countdown voice cues",
+                    title = "Countdown Voice Cues",
+                    subtitle = if (voiceCuesEnabled) {
+                        "Announce 30s, 10s, and 5s remaining during structured intervals"
+                    } else {
+                        "Turn on Voice Cues above to enable interval countdown announcements"
+                    },
+                    checked = countdownVoiceCuesEnabled,
+                    enabled = voiceCuesEnabled,
+                    onCheckedChange = viewModel::setCountdownVoiceCuesEnabled,
+                )
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                SettingsToggleRow(
+                    icon = Icons.Default.GraphicEq,
+                    iconDescription = "Duck background audio",
+                    title = "Duck Background Audio",
+                    subtitle = "Briefly lower music or podcast volume while cues play",
+                    checked = audioDuckingEnabled,
+                    onCheckedChange = viewModel::setAudioDuckingEnabled,
                 )
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                 SettingsToggleRow(
@@ -227,7 +326,7 @@ fun SettingsScreen(
                 )
             }
 
-            // 3. Schedule Preferences Section
+            // 4. Schedule Preferences Section
             AppSectionCard(
                 title = "Schedule Preferences",
                 icon = Icons.Default.CalendarMonth,
@@ -323,7 +422,7 @@ fun SettingsScreen(
                 }
             }
 
-            // 4. Progressive Plan Extension (+10% Weekly Volume Beyond 5K)
+            // 5. Progressive Plan Extension (+10% Weekly Volume Beyond 5K)
             AppSectionCard(
                 title = "Progressive Plan Extension (Beyond 5K)",
                 icon = Icons.AutoMirrored.Filled.TrendingUp,
@@ -414,7 +513,139 @@ fun SettingsScreen(
                 }
             }
 
-            // 5. Reset Program / Clear Data Section
+            // 6. Data Backup (JSON) Section
+            AppSectionCard(
+                title = "Data Backup (JSON)",
+                icon = Icons.Default.SaveAlt,
+                iconContentDescription = "Data backup icon",
+                role = AppCardRole.CONTENT,
+            ) {
+                Text(
+                    text = "Export all completed workouts, GPS route points, custom workouts, schedule, and preferences to JSON, or restore from a backup file.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+
+                when (val state = backupUiState) {
+                    is BackupUiState.Working -> {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 12.dp),
+                        ) {
+                            Text(
+                                text = state.message,
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                        }
+                    }
+
+                    is BackupUiState.Success -> {
+                        AppSectionCard(
+                            role = AppCardRole.SUCCESS,
+                            cornerRadius = 12.dp,
+                            modifier = Modifier.padding(bottom = 12.dp),
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                            ) {
+                                Text(
+                                    text = state.message,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = FontWeight.Medium,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                TextButton(onClick = viewModel::clearBackupStatus) {
+                                    Text("Dismiss")
+                                }
+                            }
+                        }
+                    }
+
+                    is BackupUiState.Error -> {
+                        AppSectionCard(
+                            role = AppCardRole.ALERT,
+                            cornerRadius = 12.dp,
+                            modifier = Modifier.padding(bottom = 12.dp),
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                            ) {
+                                Text(
+                                    text = state.message,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = FontWeight.Medium,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                TextButton(onClick = viewModel::clearBackupStatus) {
+                                    Text("Dismiss")
+                                }
+                            }
+                        }
+                    }
+
+                    BackupUiState.Idle,
+                    is BackupUiState.PendingRestoreConfirmation,
+                    -> Unit
+                }
+
+                val isBackupBusy = backupUiState is BackupUiState.Working
+
+                Button(
+                    onClick = {
+                        exportBackupLauncher.launch("safestride-5k-backup-${LocalDate.now()}.json")
+                    },
+                    enabled = !isBackupBusy,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 48.dp),
+                    shape = RoundedCornerShape(12.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.FileUpload,
+                        contentDescription = "Export JSON backup",
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "EXPORT BACKUP (JSON)",
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                OutlinedButton(
+                    onClick = {
+                        importBackupLauncher.launch(arrayOf("application/json", "text/plain", "*/*"))
+                    },
+                    enabled = !isBackupBusy,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 48.dp),
+                    shape = RoundedCornerShape(12.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.FileDownload,
+                        contentDescription = "Import JSON backup",
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "IMPORT / RESTORE (JSON)",
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+            }
+
+            // 7. Reset Program / Clear Data Section
             AppSectionCard(
                 title = "Reset Program & Data",
                 icon = Icons.Default.DeleteForever,
@@ -451,6 +682,33 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
         }
+    }
+
+    val pendingRestore = (backupUiState as? BackupUiState.PendingRestoreConfirmation)?.backup
+    if (pendingRestore != null) {
+        AlertDialog(
+            onDismissRequest = viewModel::dismissRestoreConfirmation,
+            title = { Text("Restore Backup?") },
+            text = {
+                Text(
+                    "Restoring this JSON backup will replace all current workout history, custom workouts, schedule, and settings.\n\n" +
+                        "Backup contents:\n" +
+                        "• ${pendingRestore.completedWorkouts.size} completed workouts\n" +
+                        "• ${pendingRestore.customWorkouts.size} custom workouts\n" +
+                        "• ${pendingRestore.scheduledWorkouts.size} scheduled entries",
+                )
+            },
+            confirmButton = {
+                Button(onClick = viewModel::confirmImportBackup) {
+                    Text("Restore Data")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = viewModel::dismissRestoreConfirmation) {
+                    Text("Cancel")
+                }
+            },
+        )
     }
 
     if (showDatePicker) {
@@ -525,6 +783,7 @@ private fun SettingsToggleRow(
     title: String,
     subtitle: String,
     checked: Boolean,
+    enabled: Boolean = true,
     onCheckedChange: (Boolean) -> Unit,
 ) {
     Row(
@@ -543,7 +802,11 @@ private fun SettingsToggleRow(
             Icon(
                 imageVector = icon,
                 contentDescription = iconDescription,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                tint = if (enabled) {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                },
                 modifier = Modifier.size(22.dp),
             )
             Spacer(modifier = Modifier.width(12.dp))
@@ -552,17 +815,26 @@ private fun SettingsToggleRow(
                     text = title,
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    color = if (enabled) {
+                        MaterialTheme.colorScheme.onSurface
+                    } else {
+                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                    },
                 )
                 Text(
                     text = subtitle,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = if (enabled) {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                    },
                 )
             }
         }
         Switch(
             checked = checked,
+            enabled = enabled,
             onCheckedChange = onCheckedChange,
         )
     }

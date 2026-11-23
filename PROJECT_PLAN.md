@@ -684,6 +684,45 @@ Tasks:
 
 Done when: Open exercise omits the `"Open-Ended Count-Up Timer"` label, updates both pace metrics every 3 seconds, uses a single consistently shaped `"COMPLETE"` control, supports choosing Run or Walk at start and switching live mid-workout with accurate Run/Walk attribution, and Stats Program Progress counts distinct completed official workouts against the full configured program length with `currentWeekNumber` derived from the calendar start week.
 
+### Phase 8.7 — Audio Focus Ducking, Countdown Voice Cues, JSON Export/Import & Dark Theme (Completed)
+Tasks:
+- [x] **Audio Focus Ducking Setting & Hardening**:
+  - Add `audioDuckingEnabled: Flow<Boolean>` (default `true`) and `setAudioDuckingEnabled(enabled: Boolean)` to `SettingsRepository` and `DefaultSettingsRepository` (DataStore).
+  - Add a `"Duck Background Audio"` toggle in `SettingsScreen` / `SettingsViewModel` so users can choose whether voice and sound cues briefly lower background music/podcasts (`AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK`).
+  - Harden `DefaultAudioHapticManager`:
+    - Request/abandon transient ducking audio focus only when `audioDuckingEnabled` is `true`.
+    - Handle `UtteranceProgressListener` (`onStart`, `onDone`, `onError`, `onStop`) by utterance ID so startup `"warmup_utterance"` or flushed utterances do not prematurely abandon audio focus.
+    - Request and release transient ducking focus around `playTransitionSound()` (`ToneGenerator`) when sound cues are enabled without TTS.
+- [x] **Interval Countdown Voice Cues (30s / 10s / 5s)**:
+  - Add `countdownVoiceCuesEnabled: Flow<Boolean>` (default `true`) and `setCountdownVoiceCuesEnabled(enabled: Boolean)` to `SettingsRepository` and `DefaultSettingsRepository` (DataStore).
+  - Add a `"Countdown Voice Cues"` toggle under Audio & Haptic Cues in `SettingsScreen` / `SettingsViewModel` (active when Voice Cues are enabled).
+  - Track remaining time thresholds per structured interval (`WARMUP`, `RUN`, `WALK`, `COOLDOWN`) in `WorkoutEngine` using authoritative elapsed timestamps (skipped for Open Exercise `Free Run` / `Free Walk`):
+    - *"30 seconds left"* when remaining time crosses `30_000L` ms (for intervals with planned duration > 45 seconds so it does not overlap the start announcement).
+    - *"10 seconds left"* when remaining time crosses `10_000L` ms (for intervals with planned duration > 15 seconds).
+    - *"5 seconds"* when remaining time crosses `5_000L` ms (for intervals with planned duration > 10 seconds).
+    - Reset cue tracking on interval skip, previous interval, and workout start/stop; prevent duplicate cues across pause/resume or tick jitter.
+  - Add unit tests in `WorkoutEngineTest` verifying 30s, 10s, and 5s cue timing, pause/resume idempotency, skip resets, and Open Exercise exclusion.
+- [x] **JSON Data Export & Import / Restore in Settings**:
+  - Implement local backup serialization/deserialization (`BackupDataJsonMapper` / `ExportBackupUseCase` / `ImportBackupUseCase`) using built-in `org.json` (`JSONObject` / `JSONArray`, zero extra external dependencies) covering:
+    - Metadata (`schemaVersion`, `appName`, `exportedAt`)
+    - Settings preferences (`distanceUnit`, `programStartDate`, `preferredWorkoutDays`, `progressiveWeeksExtension`, `longRunDay`, `voiceCuesEnabled`, `soundCuesEnabled`, `vibrationEnabled`, `audioDuckingEnabled`, `countdownVoiceCuesEnabled`, `themeMode`, `onboardingComplete`)
+    - Completed workouts, completed intervals (including `distanceMeters`), and GPS route points
+    - Custom workouts and custom workout intervals
+    - Scheduled workouts (`ScheduledWorkoutEntity`)
+  - Add a **Data Backup (JSON)** section in `SettingsScreen` / `SettingsViewModel`:
+    - **Export Backup (JSON)** via `ActivityResultContracts.CreateDocument("application/json")` (suggested filename `safestride-5k-backup-YYYY-MM-DD.json`).
+    - **Import / Restore Backup (JSON)** via `ActivityResultContracts.OpenDocument` with schema/type validation before any database write, followed by a confirmation dialog warning that restoring replaces current local workouts, custom plans, schedule, and settings.
+    - Execute Room restore atomically inside a single database transaction (`withTransaction`) and apply DataStore preferences cleanly; show loading, success, and descriptive error banners.
+  - Add unit tests for JSON round-trip export/import, schema validation/corrupt-JSON rejection, and empty-history exports.
+- [x] **Dark Theme Option in Settings**:
+  - Add `ThemeMode` enum (`LIGHT`, `DARK`, `SYSTEM`) persisted in DataStore via `SettingsRepository` and `DefaultSettingsRepository`, defaulting to `ThemeMode.LIGHT` (preserving the white-and-blue default identity on fresh install; dynamic color remains disabled).
+  - Add a 3-way **Appearance** selector (`Light` / `Dark` / `System`) in `SettingsScreen` / `SettingsViewModel`.
+  - Define a blue-accented `DarkColorScheme` in `Color.kt` and update `SafeStride5KTheme` in `Theme.kt` (observed from `MainActivity.kt`) to apply `LightColorScheme`, `DarkColorScheme`, or `isSystemInDarkTheme()` and update `isAppearanceLightStatusBars` accordingly.
+  - Replace hardcoded light-only colors in `AppSectionCard.kt` (`SUCCESS`), `ActiveWorkoutScreen.kt`, `WorkoutPreviewScreen.kt`, `WorkoutBuilderScreen.kt`, `CalendarScreen.kt`, `WorkoutDetailScreen.kt`, and `StatsScreen.kt` with theme-aware light/dark colors so all screens maintain accessible contrast in both modes.
+  - Add unit tests in `SettingsViewModelTest` and `SettingsRepository` tests verifying `ThemeMode`, `audioDuckingEnabled`, and `countdownVoiceCuesEnabled` persistence and defaults.
+
+Done when: Users can toggle background audio ducking, toggle 30s/10s/5s countdown voice cues during structured intervals, export and restore full app data as JSON from Settings, and switch between Light (default), Dark, and System theme modes with full UI contrast in both themes.
+
 ### Phase 9 — QA
 Timer scenarios:
 - pause/resume

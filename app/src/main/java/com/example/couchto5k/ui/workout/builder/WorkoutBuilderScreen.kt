@@ -41,6 +41,15 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import com.example.couchto5k.ui.theme.CooldownDarkBg
+import com.example.couchto5k.ui.theme.CooldownDarkText
+import com.example.couchto5k.ui.theme.CooldownLightBg
+import com.example.couchto5k.ui.theme.CooldownLightText
+import com.example.couchto5k.ui.theme.LocalAppDarkTheme
+import com.example.couchto5k.ui.theme.WarmupDarkBg
+import com.example.couchto5k.ui.theme.WarmupDarkText
+import com.example.couchto5k.ui.theme.WarmupLightBg
+import com.example.couchto5k.ui.theme.WarmupLightText
 import com.example.couchto5k.ui.utils.squishyOverscroll
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -59,7 +68,6 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -424,9 +432,10 @@ private fun FixedIntervalCard(
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
+                val isDark = LocalAppDarkTheme.current
                 val (badgeBg, badgeText) = when (type) {
-                    IntervalType.WARMUP -> Pair(Color(0xFFFFF3E0), Color(0xFFE65100))
-                    else -> Pair(Color(0xFFE0F2F1), Color(0xFF004D40))
+                    IntervalType.WARMUP -> if (isDark) Pair(WarmupDarkBg, WarmupDarkText) else Pair(WarmupLightBg, WarmupLightText)
+                    else -> if (isDark) Pair(CooldownDarkBg, CooldownDarkText) else Pair(CooldownLightBg, CooldownLightText)
                 }
 
                 Surface(

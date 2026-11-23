@@ -1,8 +1,10 @@
 package com.example.couchto5k.di
 
+import com.example.couchto5k.data.backup.DefaultBackupRepository
 import com.example.couchto5k.data.repository.DefaultSettingsRepository
 import com.example.couchto5k.data.repository.DefaultTrainingPlanRepository
 import com.example.couchto5k.data.repository.DefaultWorkoutHistoryRepository
+import com.example.couchto5k.domain.repository.BackupRepository
 import com.example.couchto5k.domain.repository.SettingsRepository
 import com.example.couchto5k.domain.repository.TrainingPlanRepository
 import com.example.couchto5k.domain.repository.WorkoutHistoryRepository
@@ -42,4 +44,10 @@ abstract class AppModule {
     abstract fun bindSettingsRepository(
         impl: DefaultSettingsRepository,
     ): SettingsRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindBackupRepository(
+        impl: DefaultBackupRepository,
+    ): BackupRepository
 }

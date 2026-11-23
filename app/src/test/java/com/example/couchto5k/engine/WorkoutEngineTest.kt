@@ -297,6 +297,177 @@ class WorkoutEngineTest {
         assertEquals(1, segments.size)
         assertEquals(15_000L, segments[0].durationMillis)
     }
+
+    @Test
+    fun countdownVoiceCues_speaks30s10s5sAtExpectedThresholds() {
+        val workout = TrainingWorkout(
+            id = 10L,
+            week = 3,
+            workoutNumber = 1,
+            title = "2 Min Run Test",
+            intervals = listOf(WorkoutInterval(0, IntervalType.RUN, 120)),
+        )
+        workoutEngine.start(workout)
+        fakeAudioHapticManager.spokenMessages.clear()
+
+        val startRealtime = SystemClock.elapsedRealtime()
+
+        // 40s remaining -> before 30s threshold, no countdown cue
+        SystemClock.setCurrentTimeMillis(startRealtime + 80_000L)
+        workoutEngine.updateTime()
+        assertEquals(emptyList<String>(), fakeAudioHapticManager.spokenMessages)
+
+        // 30s remaining -> speaks "30 seconds left"
+        SystemClock.setCurrentTimeMillis(startRealtime + 90_000L)
+        workoutEngine.updateTime()
+        assertEquals(listOf("30 seconds left"), fakeAudioHapticManager.spokenMessages)
+
+        // 10s remaining -> speaks "10 seconds left"
+        SystemClock.setCurrentTimeMillis(startRealtime + 110_000L)
+        workoutEngine.updateTime()
+        assertEquals(listOf("30 seconds left", "10 seconds left"), fakeAudioHapticManager.spokenMessages)
+
+        // 5s remaining -> speaks "5 seconds"
+        SystemClock.setCurrentTimeMillis(startRealtime + 115_000L)
+        workoutEngine.updateTime()
+        assertEquals(
+            listOf("30 seconds left", "10 seconds left", "5 seconds"),
+            fakeAudioHapticManager.spokenMessages,
+        )
+    }
+
+    @Test
+    fun countdownVoiceCues_skipsThresholdsTooCloseToIntervalStart() {
+        // 40s interval: > 15s and > 10s, but <= 45s so 30s cue is skipped
+        val fortySecWorkout = TrainingWorkout(
+            id = 11L,
+            week = 1,
+            workoutNumber = 1,
+            title = "40s Interval",
+            intervals = listOf(WorkoutInterval(0, IntervalType.RUN, 40)),
+        )
+        workoutEngine.start(fortySecWorkout)
+        fakeAudioHapticManager.spokenMessages.clear()
+
+        val start40 = SystemClock.elapsedRealtime()
+        SystemClock.setCurrentTimeMillis(start40 + 10_000L) // 30s remaining
+        workoutEngine.updateTime()
+        assertTrue(fakeAudioHapticManager.spokenMessages.isEmpty())
+
+        SystemClock.setCurrentTimeMillis(start40 + 30_000L) // 10s remaining
+        workoutEngine.updateTime()
+        SystemClock.setCurrentTimeMillis(start40 + 35_000L) // 5s remaining
+        workoutEngine.updateTime()
+        assertEquals(listOf("10 seconds left", "5 seconds"), fakeAudioHapticManager.spokenMessages)
+
+        // 15s interval: <= 15s so 30s and 10s cues are skipped, only 5s speaks
+        val fifteenSecWorkout = TrainingWorkout(
+            id = 12L,
+            week = 1,
+            workoutNumber = 1,
+            title = "15s Interval",
+            intervals = listOf(WorkoutInterval(0, IntervalType.RUN, 15)),
+        )
+        workoutEngine.start(fifteenSecWorkout)
+        fakeAudioHapticManager.spokenMessages.clear()
+
+        val start15 = SystemClock.elapsedRealtime()
+        SystemClock.setCurrentTimeMillis(start15 + 5_000L) // 10s remaining
+        workoutEngine.updateTime()
+        assertTrue(fakeAudioHapticManager.spokenMessages.isEmpty())
+
+        SystemClock.setCurrentTimeMillis(start15 + 10_000L) // 5s remaining
+        workoutEngine.updateTime()
+        assertEquals(listOf("5 seconds"), fakeAudioHapticManager.spokenMessages)
+    }
+
+    @Test
+    fun countdownVoiceCues_doesNotDuplicateAcrossTicksOrPauseResume() {
+        val workout = TrainingWorkout(
+            id = 13L,
+            week = 1,
+            workoutNumber = 1,
+            title = "Idempotency Test",
+            intervals = listOf(WorkoutInterval(0, IntervalType.RUN, 60)),
+        )
+        workoutEngine.start(workout)
+        fakeAudioHapticManager.spokenMessages.clear()
+
+        val t0 = SystemClock.elapsedRealtime()
+        SystemClock.setCurrentTimeMillis(t0 + 30_000L) // 30s remaining
+        workoutEngine.updateTime()
+        workoutEngine.updateTime()
+        assertEquals(listOf("30 seconds left"), fakeAudioHapticManager.spokenMessages)
+
+        workoutEngine.pause()
+        SystemClock.setCurrentTimeMillis(t0 + 45_000L)
+        workoutEngine.resume()
+        workoutEngine.updateTime()
+        assertEquals(listOf("30 seconds left"), fakeAudioHapticManager.spokenMessages)
+    }
+
+    @Test
+    fun countdownVoiceCues_resetsOnSkipAndPreviousInterval() {
+        val workout = createTestWorkout() // Interval 0: 300s warmup, Interval 1: 60s run
+        workoutEngine.start(workout)
+        fakeAudioHapticManager.spokenMessages.clear()
+
+        val t0 = SystemClock.elapsedRealtime()
+        SystemClock.setCurrentTimeMillis(t0 + 270_000L) // 30s left in warmup
+        workoutEngine.updateTime()
+        assertEquals(listOf("30 seconds left"), fakeAudioHapticManager.spokenMessages)
+
+        // Skip to RUN (60s)
+        workoutEngine.skipToNextInterval()
+        fakeAudioHapticManager.spokenMessages.clear()
+        val t1 = SystemClock.elapsedRealtime()
+        SystemClock.setCurrentTimeMillis(t1 + 30_000L) // 30s left in run
+        workoutEngine.updateTime()
+        assertEquals(listOf("30 seconds left"), fakeAudioHapticManager.spokenMessages)
+
+        // Previous back to WARMUP (300s)
+        workoutEngine.previousInterval()
+        fakeAudioHapticManager.spokenMessages.clear()
+        val t2 = SystemClock.elapsedRealtime()
+        SystemClock.setCurrentTimeMillis(t2 + 270_000L) // 30s left in warmup again
+        workoutEngine.updateTime()
+        assertEquals(listOf("30 seconds left"), fakeAudioHapticManager.spokenMessages)
+    }
+
+    @Test
+    fun countdownVoiceCues_respectsDisabledToggle_andExcludesOpenExercise() {
+        val workout = TrainingWorkout(
+            id = 14L,
+            week = 1,
+            workoutNumber = 1,
+            title = "Disabled Countdown",
+            intervals = listOf(WorkoutInterval(0, IntervalType.RUN, 60)),
+        )
+        workoutEngine.setCountdownVoiceCuesEnabled(false)
+        workoutEngine.start(workout)
+        fakeAudioHapticManager.spokenMessages.clear()
+
+        val t0 = SystemClock.elapsedRealtime()
+        SystemClock.setCurrentTimeMillis(t0 + 30_000L)
+        workoutEngine.updateTime()
+        SystemClock.setCurrentTimeMillis(t0 + 50_000L)
+        workoutEngine.updateTime()
+        SystemClock.setCurrentTimeMillis(t0 + 55_000L)
+        workoutEngine.updateTime()
+        assertTrue(fakeAudioHapticManager.spokenMessages.isEmpty())
+
+        // Re-enable and verify Open Exercise still suppresses countdown cues
+        workoutEngine.setCountdownVoiceCuesEnabled(true)
+        workoutEngine.startFreeRun(IntervalType.RUN)
+        fakeAudioHapticManager.spokenMessages.clear()
+
+        val t1 = SystemClock.elapsedRealtime()
+        SystemClock.setCurrentTimeMillis(t1 + 30_000L)
+        workoutEngine.updateTime()
+        SystemClock.setCurrentTimeMillis(t1 + 55_000L)
+        workoutEngine.updateTime()
+        assertTrue(fakeAudioHapticManager.spokenMessages.isEmpty())
+    }
 }
 
 class FakeAudioHapticManager : AudioHapticManager {

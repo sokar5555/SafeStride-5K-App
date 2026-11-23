@@ -43,6 +43,15 @@ import com.example.couchto5k.domain.model.TrainingWorkout
 import com.example.couchto5k.domain.model.WorkoutInterval
 import com.example.couchto5k.ui.components.AppHeaderBanner
 import com.example.couchto5k.ui.components.LocationStatusBanner
+import com.example.couchto5k.ui.theme.CooldownDarkBg
+import com.example.couchto5k.ui.theme.CooldownDarkText
+import com.example.couchto5k.ui.theme.CooldownLightBg
+import com.example.couchto5k.ui.theme.CooldownLightText
+import com.example.couchto5k.ui.theme.LocalAppDarkTheme
+import com.example.couchto5k.ui.theme.WarmupDarkBg
+import com.example.couchto5k.ui.theme.WarmupDarkText
+import com.example.couchto5k.ui.theme.WarmupLightBg
+import com.example.couchto5k.ui.theme.WarmupLightText
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
@@ -318,26 +327,27 @@ private fun IntervalCard(interval: WorkoutInterval) {
 
 @Composable
 private fun IntervalBadge(type: IntervalType) {
+    val isDark = LocalAppDarkTheme.current
     val (badgeBg, badgeText, label) = when (type) {
         IntervalType.WARMUP -> Triple(
-            Color(0xFFFFF3E0),
-            Color(0xFFE65100),
-            "Warmup"
+            if (isDark) WarmupDarkBg else WarmupLightBg,
+            if (isDark) WarmupDarkText else WarmupLightText,
+            "Warmup",
         )
         IntervalType.RUN -> Triple(
             MaterialTheme.colorScheme.primary,
             MaterialTheme.colorScheme.onPrimary,
-            "Run"
+            "Run",
         )
         IntervalType.WALK -> Triple(
             MaterialTheme.colorScheme.secondaryContainer,
             MaterialTheme.colorScheme.onSecondaryContainer,
-            "Walk"
+            "Walk",
         )
         IntervalType.COOLDOWN -> Triple(
-            Color(0xFFE0F2F1),
-            Color(0xFF004D40),
-            "Cooldown"
+            if (isDark) CooldownDarkBg else CooldownLightBg,
+            if (isDark) CooldownDarkText else CooldownLightText,
+            "Cooldown",
         )
     }
 

@@ -20,13 +20,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.example.couchto5k.ui.theme.OnSuccessContainerColor
-import com.example.couchto5k.ui.theme.SuccessContainerColor
 
 enum class AppCardRole {
     CONTENT,
@@ -52,7 +49,7 @@ fun AppSectionCard(
         AppCardRole.CONTENT -> MaterialTheme.colorScheme.surfaceVariant to MaterialTheme.colorScheme.onSurface
         AppCardRole.HIGHLIGHT -> MaterialTheme.colorScheme.primaryContainer to MaterialTheme.colorScheme.onPrimaryContainer
         AppCardRole.ALERT -> MaterialTheme.colorScheme.errorContainer to MaterialTheme.colorScheme.onErrorContainer
-        AppCardRole.SUCCESS -> SuccessContainerColor to OnSuccessContainerColor
+        AppCardRole.SUCCESS -> MaterialTheme.colorScheme.tertiaryContainer to MaterialTheme.colorScheme.onTertiaryContainer
         AppCardRole.SURFACE -> MaterialTheme.colorScheme.surface to MaterialTheme.colorScheme.onSurface
     }
 
@@ -83,7 +80,7 @@ fun AppSectionCard(
                         Icon(
                             imageVector = icon,
                             contentDescription = iconContentDescription,
-                            tint = if (role == AppCardRole.CONTENT || role == AppCardRole.SURFACE) {
+                            tint = if ((role == AppCardRole.CONTENT) || (role == AppCardRole.SURFACE)) {
                                 MaterialTheme.colorScheme.primary
                             } else {
                                 contentColor

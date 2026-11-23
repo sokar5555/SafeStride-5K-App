@@ -31,7 +31,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
@@ -50,6 +49,9 @@ import com.example.couchto5k.ui.components.AppCardRole
 import com.example.couchto5k.ui.components.AppHeaderBanner
 import com.example.couchto5k.ui.components.AppSectionCard
 import com.example.couchto5k.ui.components.AppSectionHeader
+import com.example.couchto5k.ui.theme.LocalAppDarkTheme
+import com.example.couchto5k.ui.theme.WalkTealDark
+import com.example.couchto5k.ui.theme.WalkTealLight
 import com.example.couchto5k.ui.utils.formatDistance
 import com.example.couchto5k.ui.utils.formatDuration
 import com.example.couchto5k.ui.utils.formatPace
@@ -192,7 +194,7 @@ private fun RunVsWalkRatioSection(userStats: UserStats) {
         val walkPct = 100 - runPct
 
         val runColor = MaterialTheme.colorScheme.primary
-        val walkColor = Color(0xFF00796B) // High contrast deep teal for walking
+        val walkColor = if (LocalAppDarkTheme.current) WalkTealDark else WalkTealLight
 
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -364,6 +366,7 @@ private fun WeeklyDistanceSection(weeklyDistance: List<WeeklyDistancePoint>, dis
         if (weeklyDistance.isEmpty()) {
             Text("No data yet.", style = MaterialTheme.typography.bodyMedium)
         } else {
+            val barColor = MaterialTheme.colorScheme.primary
             Canvas(modifier = Modifier.fillMaxWidth().height(150.dp)) {
                 val maxDist = weeklyDistance.maxOf { it.distanceMeters }.toFloat()
                 val width = size.width
@@ -379,7 +382,7 @@ private fun WeeklyDistanceSection(weeklyDistance: List<WeeklyDistancePoint>, dis
                     val y = height - barHeight
 
                     drawRect(
-                        color = Color(0xFF1976D2),
+                        color = barColor,
                         topLeft = Offset(x, y),
                         size = androidx.compose.ui.geometry.Size(barWidth, barHeight),
                     )

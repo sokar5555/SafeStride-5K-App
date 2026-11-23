@@ -34,6 +34,7 @@ import com.example.couchto5k.domain.model.WorkoutStatus
 import com.example.couchto5k.ui.components.AppCardRole
 import com.example.couchto5k.ui.components.AppHeaderBanner
 import com.example.couchto5k.ui.components.AppSectionCard
+import com.example.couchto5k.ui.theme.LocalAppDarkTheme
 import com.example.couchto5k.ui.utils.squishyOverscroll
 import java.time.DayOfWeek
 import java.time.Instant
@@ -326,12 +327,13 @@ fun MonthDayCell(
     workout: ScheduledWorkout?,
     onClick: () -> Unit,
 ) {
+    val isDark = LocalAppDarkTheme.current
     val statusColor = when (workout?.status) {
-        WorkoutStatus.COMPLETED -> Color(0xFF4CAF50)
+        WorkoutStatus.COMPLETED -> MaterialTheme.colorScheme.tertiary
         WorkoutStatus.AVAILABLE -> MaterialTheme.colorScheme.primary
-        WorkoutStatus.SKIPPED -> Color(0xFFF44336)
-        WorkoutStatus.UPCOMING -> Color.Gray
-        WorkoutStatus.IN_PROGRESS -> Color(0xFFFF9800)
+        WorkoutStatus.SKIPPED -> MaterialTheme.colorScheme.error
+        WorkoutStatus.UPCOMING -> MaterialTheme.colorScheme.onSurfaceVariant
+        WorkoutStatus.IN_PROGRESS -> if (isDark) Color(0xFFFFB74D) else Color(0xFFEF6C00)
         else -> null
     }
 
@@ -651,14 +653,18 @@ fun ScheduledWorkoutItem(
     val formatter = DateTimeFormatter.ofPattern("EEE, MMM d, yyyy")
     val isToday = workout.scheduledDate == LocalDate.now()
 
-    val (statusColor, statusText) = when (workout.status) {
-        WorkoutStatus.COMPLETED -> Color(0xFF4CAF50) to "Completed"
-        WorkoutStatus.AVAILABLE -> MaterialTheme.colorScheme.primary to "Available"
-        WorkoutStatus.UPCOMING -> Color.Gray to "Upcoming"
-        WorkoutStatus.SKIPPED -> Color(0xFFF44336) to "Missed"
-        WorkoutStatus.IN_PROGRESS -> Color(0xFFFF9800) to "In Progress"
-        WorkoutStatus.REST_DAY -> Color.LightGray to "Rest Day"
+    val isDark = LocalAppDarkTheme.current
+    val (statusColors, statusText) = when (workout.status) {
+        WorkoutStatus.COMPLETED -> (MaterialTheme.colorScheme.tertiary to MaterialTheme.colorScheme.onTertiary) to "Completed"
+        WorkoutStatus.AVAILABLE -> (MaterialTheme.colorScheme.primary to MaterialTheme.colorScheme.onPrimary) to "Available"
+        WorkoutStatus.UPCOMING -> (MaterialTheme.colorScheme.onSurfaceVariant to MaterialTheme.colorScheme.surface) to "Upcoming"
+        WorkoutStatus.SKIPPED -> (MaterialTheme.colorScheme.error to MaterialTheme.colorScheme.onError) to "Missed"
+        WorkoutStatus.IN_PROGRESS -> (
+            if (isDark) Color(0xFFFFB74D) to Color(0xFF2D1600) else Color(0xFFEF6C00) to Color.White
+        ) to "In Progress"
+        WorkoutStatus.REST_DAY -> (MaterialTheme.colorScheme.outline.copy(alpha = 0.45f) to MaterialTheme.colorScheme.onSurface) to "Rest Day"
     }
+    val (statusColor, statusTextColor) = statusColors
 
     AppSectionCard(
         role = if (isToday) AppCardRole.HIGHLIGHT else AppCardRole.CONTENT,
@@ -692,7 +698,7 @@ fun ScheduledWorkoutItem(
             ) {
                 Text(
                     text = statusText,
-                    color = Color.White,
+                    color = statusTextColor,
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Bold,
                 )

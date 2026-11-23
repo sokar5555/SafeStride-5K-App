@@ -58,6 +58,15 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import com.example.couchto5k.ui.theme.CooldownDarkBg
+import com.example.couchto5k.ui.theme.CooldownDarkText
+import com.example.couchto5k.ui.theme.CooldownLightBg
+import com.example.couchto5k.ui.theme.CooldownLightText
+import com.example.couchto5k.ui.theme.LocalAppDarkTheme
+import com.example.couchto5k.ui.theme.WarmupDarkBg
+import com.example.couchto5k.ui.theme.WarmupDarkText
+import com.example.couchto5k.ui.theme.WarmupLightBg
+import com.example.couchto5k.ui.theme.WarmupLightText
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -855,11 +864,12 @@ private fun CelebrationMetricItem(
 
 @Composable
 private fun getIntervalColors(type: IntervalType): Pair<Color, Color> {
+    val isDark = LocalAppDarkTheme.current
     return when (type) {
-        IntervalType.WARMUP -> Pair(Color(0xFFFFF3E0), Color(0xFFE65100))
+        IntervalType.WARMUP -> if (isDark) Pair(WarmupDarkBg, WarmupDarkText) else Pair(WarmupLightBg, WarmupLightText)
         IntervalType.RUN -> Pair(MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.onPrimaryContainer)
         IntervalType.WALK -> Pair(MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.onSecondaryContainer)
-        IntervalType.COOLDOWN -> Pair(Color(0xFFE0F2F1), Color(0xFF004D40))
+        IntervalType.COOLDOWN -> if (isDark) Pair(CooldownDarkBg, CooldownDarkText) else Pair(CooldownLightBg, CooldownLightText)
     }
 }
 

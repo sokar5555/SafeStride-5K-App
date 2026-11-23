@@ -1,8 +1,13 @@
 package com.example.couchto5k.ui.settings
 
+import com.example.couchto5k.domain.model.AppBackupData
+import com.example.couchto5k.domain.model.BackupSettings
+import com.example.couchto5k.domain.model.BackupSummary
 import com.example.couchto5k.domain.model.CompletedWorkoutDetails
 import com.example.couchto5k.domain.model.DistanceUnit
+import com.example.couchto5k.domain.model.ThemeMode
 import com.example.couchto5k.domain.model.TrainingWorkout
+import com.example.couchto5k.domain.repository.BackupRepository
 import com.example.couchto5k.domain.repository.SettingsRepository
 import com.example.couchto5k.domain.repository.WorkoutHistoryRepository
 import com.example.couchto5k.engine.ActiveWorkoutState
@@ -21,6 +26,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import java.time.DayOfWeek
+import java.time.Instant
 import java.time.LocalDate
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -29,6 +35,7 @@ class SettingsViewModelTest {
     private val testDispatcher = UnconfinedTestDispatcher()
     private lateinit var fakeSettingsRepository: FakeSettingsRepository
     private lateinit var fakeHistoryRepository: FakeWorkoutHistoryRepository
+    private lateinit var fakeBackupRepository: FakeBackupRepository
     private lateinit var viewModel: SettingsViewModel
 
     @Before
@@ -36,7 +43,12 @@ class SettingsViewModelTest {
         Dispatchers.setMain(testDispatcher)
         fakeSettingsRepository = FakeSettingsRepository()
         fakeHistoryRepository = FakeWorkoutHistoryRepository()
-        viewModel = SettingsViewModel(fakeSettingsRepository, fakeHistoryRepository)
+        fakeBackupRepository = FakeBackupRepository()
+        viewModel = SettingsViewModel(
+            settingsRepository = fakeSettingsRepository,
+            workoutHistoryRepository = fakeHistoryRepository,
+            backupRepository = fakeBackupRepository,
+        )
     }
 
     @After
@@ -60,12 +72,22 @@ class SettingsViewModelTest {
     @Test
     fun `updating audio and haptic cue preferences persists in DataStore`() = runTest {
         assertTrue(viewModel.voiceCuesEnabled.value)
+        assertTrue(viewModel.countdownVoiceCuesEnabled.value)
+        assertTrue(viewModel.audioDuckingEnabled.value)
         assertTrue(viewModel.soundCuesEnabled.value)
         assertTrue(viewModel.vibrationEnabled.value)
 
         viewModel.setVoiceCuesEnabled(false)
         assertFalse(viewModel.voiceCuesEnabled.value)
         assertFalse(fakeSettingsRepository.voiceCuesFlow.value)
+
+        viewModel.setCountdownVoiceCuesEnabled(false)
+        assertFalse(viewModel.countdownVoiceCuesEnabled.value)
+        assertFalse(fakeSettingsRepository.countdownVoiceCuesFlow.value)
+
+        viewModel.setAudioDuckingEnabled(false)
+        assertFalse(viewModel.audioDuckingEnabled.value)
+        assertFalse(fakeSettingsRepository.audioDuckingFlow.value)
 
         viewModel.setSoundCuesEnabled(false)
         assertFalse(viewModel.soundCuesEnabled.value)
@@ -78,6 +100,19 @@ class SettingsViewModelTest {
         viewModel.setVoiceCuesEnabled(true)
         assertTrue(viewModel.voiceCuesEnabled.value)
         assertTrue(fakeSettingsRepository.voiceCuesFlow.value)
+    }
+
+    @Test
+    fun `theme mode defaults to LIGHT and persists LIGHT DARK SYSTEM`() = runTest {
+        assertEquals(ThemeMode.LIGHT, viewModel.themeMode.value)
+
+        viewModel.setThemeMode(ThemeMode.DARK)
+        assertEquals(ThemeMode.DARK, viewModel.themeMode.value)
+        assertEquals(ThemeMode.DARK, fakeSettingsRepository.themeModeFlow.value)
+
+        viewModel.setThemeMode(ThemeMode.SYSTEM)
+        assertEquals(ThemeMode.SYSTEM, viewModel.themeMode.value)
+        assertEquals(ThemeMode.SYSTEM, fakeSettingsRepository.themeModeFlow.value)
     }
 
     @Test
@@ -100,6 +135,35 @@ class SettingsViewModelTest {
         )
     }
 
+    @Test
+    fun `export and import backup transitions BackupUiState cleanly`() = runTest {
+        assertEquals(BackupUiState.Idle, viewModel.backupUiState.value)
+
+        viewModel.exportBackup("content://test/backup.json")
+        assertTrue(viewModel.backupUiState.value is BackupUiState.Success)
+        assertEquals("content://test/backup.json", fakeBackupRepository.lastExportUri)
+
+        viewModel.prepareImportBackup("content://test/restore.json")
+        assertTrue(viewModel.backupUiState.value is BackupUiState.PendingRestoreConfirmation)
+
+        viewModel.confirmImportBackup()
+        assertTrue(viewModel.backupUiState.value is BackupUiState.Success)
+        assertTrue(fakeBackupRepository.restoreCalled)
+
+        viewModel.clearBackupStatus()
+        assertEquals(BackupUiState.Idle, viewModel.backupUiState.value)
+    }
+
+    @Test
+    fun `invalid import backup sets BackupUiState Error`() = runTest {
+        fakeBackupRepository.parseError = IllegalArgumentException("Corrupt JSON")
+
+        viewModel.prepareImportBackup("content://test/bad.json")
+        val state = viewModel.backupUiState.value
+        assertTrue(state is BackupUiState.Error)
+        assertEquals("Corrupt JSON", (state as BackupUiState.Error).message)
+    }
+
     private class FakeSettingsRepository : SettingsRepository {
         val startDateFlow = MutableStateFlow<LocalDate?>(null)
         val preferredDaysFlow = MutableStateFlow(
@@ -109,6 +173,9 @@ class SettingsViewModelTest {
         val voiceCuesFlow = MutableStateFlow(true)
         val soundCuesFlow = MutableStateFlow(true)
         val vibrationFlow = MutableStateFlow(true)
+        val audioDuckingFlow = MutableStateFlow(true)
+        val countdownVoiceCuesFlow = MutableStateFlow(true)
+        val themeModeFlow = MutableStateFlow(ThemeMode.LIGHT)
         val onboardingCompleteFlow = MutableStateFlow(false)
 
         override val programStartDate: Flow<LocalDate?> = startDateFlow
@@ -117,10 +184,17 @@ class SettingsViewModelTest {
         override val voiceCuesEnabled: Flow<Boolean> = voiceCuesFlow
         override val soundCuesEnabled: Flow<Boolean> = soundCuesFlow
         override val vibrationEnabled: Flow<Boolean> = vibrationFlow
+        override val audioDuckingEnabled: Flow<Boolean> = audioDuckingFlow
+        override val countdownVoiceCuesEnabled: Flow<Boolean> = countdownVoiceCuesFlow
+        override val themeMode: Flow<ThemeMode> = themeModeFlow
         override val onboardingComplete: Flow<Boolean> = onboardingCompleteFlow
 
         override suspend fun setProgramStartDate(date: LocalDate) {
             startDateFlow.value = date
+        }
+
+        override suspend fun clearProgramStartDate() {
+            startDateFlow.value = null
         }
 
         override suspend fun setPreferredWorkoutDays(days: Set<DayOfWeek>) {
@@ -141,6 +215,18 @@ class SettingsViewModelTest {
 
         override suspend fun setVibrationEnabled(enabled: Boolean) {
             vibrationFlow.value = enabled
+        }
+
+        override suspend fun setAudioDuckingEnabled(enabled: Boolean) {
+            audioDuckingFlow.value = enabled
+        }
+
+        override suspend fun setCountdownVoiceCuesEnabled(enabled: Boolean) {
+            countdownVoiceCuesFlow.value = enabled
+        }
+
+        override suspend fun setThemeMode(mode: ThemeMode) {
+            themeModeFlow.value = mode
         }
 
         override suspend fun setOnboardingComplete(complete: Boolean) {
@@ -165,6 +251,57 @@ class SettingsViewModelTest {
 
         override suspend fun clearAllHistory() {
             historyCleared = true
+        }
+    }
+
+    private class FakeBackupRepository : BackupRepository {
+        var lastExportUri: String? = null
+        var restoreCalled = false
+        var parseError: Throwable? = null
+
+        private val sampleBackup = AppBackupData(
+            schemaVersion = 1,
+            appName = "SafeStride5K",
+            exportedAt = Instant.parse("2026-11-13T18:00:00Z"),
+            settings = BackupSettings(
+                distanceUnit = DistanceUnit.MILES,
+                programStartDate = null,
+                preferredWorkoutDays = setOf(DayOfWeek.MONDAY, DayOfWeek.WEDNESDAY, DayOfWeek.SATURDAY),
+                progressiveWeeksExtension = 0,
+                longRunDay = DayOfWeek.SATURDAY,
+                voiceCuesEnabled = true,
+                soundCuesEnabled = true,
+                vibrationEnabled = true,
+                audioDuckingEnabled = true,
+                countdownVoiceCuesEnabled = true,
+                themeMode = ThemeMode.LIGHT,
+                onboardingComplete = true,
+            ),
+            completedWorkouts = emptyList(),
+            customWorkouts = emptyList(),
+            scheduledWorkouts = emptyList(),
+        )
+
+        override suspend fun exportBackupToUri(uriString: String): Result<BackupSummary> {
+            lastExportUri = uriString
+            return Result.success(
+                BackupSummary(
+                    completedWorkoutsCount = 3,
+                    customWorkoutsCount = 1,
+                    scheduledWorkoutsCount = 27,
+                    exportedAt = Instant.parse("2026-11-13T18:00:00Z"),
+                ),
+            )
+        }
+
+        override suspend fun parseAndValidateBackupFromUri(uriString: String): Result<AppBackupData> {
+            val error = parseError
+            return if (error != null) Result.failure(error) else Result.success(sampleBackup)
+        }
+
+        override suspend fun restoreBackup(backup: AppBackupData): Result<BackupSummary> {
+            restoreCalled = true
+            return Result.success(backup.toSummary())
         }
     }
 }

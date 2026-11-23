@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import com.example.couchto5k.domain.model.DistanceUnit
+import com.example.couchto5k.domain.model.ThemeMode
 import com.example.couchto5k.domain.repository.SettingsRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -28,6 +29,9 @@ class DefaultSettingsRepository @Inject constructor(
     private val voiceCuesKey = booleanPreferencesKey("voice_cues_enabled")
     private val soundCuesKey = booleanPreferencesKey("sound_cues_enabled")
     private val vibrationKey = booleanPreferencesKey("vibration_enabled")
+    private val audioDuckingKey = booleanPreferencesKey("audio_ducking_enabled")
+    private val countdownVoiceCuesKey = booleanPreferencesKey("countdown_voice_cues_enabled")
+    private val themeModeKey = stringPreferencesKey("theme_mode")
     private val onboardingCompleteKey = booleanPreferencesKey("onboarding_complete")
     private val progressiveWeeksKey = intPreferencesKey("progressive_weeks_extension")
     private val longRunDayKey = stringPreferencesKey("long_run_day")
@@ -61,6 +65,20 @@ class DefaultSettingsRepository @Inject constructor(
         preferences[vibrationKey] ?: true
     }
 
+    override val audioDuckingEnabled: Flow<Boolean> = dataStore.data.map { preferences ->
+        preferences[audioDuckingKey] ?: true
+    }
+
+    override val countdownVoiceCuesEnabled: Flow<Boolean> = dataStore.data.map { preferences ->
+        preferences[countdownVoiceCuesKey] ?: true
+    }
+
+    override val themeMode: Flow<ThemeMode> = dataStore.data.map { preferences ->
+        preferences[themeModeKey]?.let { stored ->
+            runCatching { ThemeMode.valueOf(stored) }.getOrNull()
+        } ?: ThemeMode.LIGHT
+    }
+
     override val onboardingComplete: Flow<Boolean> = dataStore.data.map { preferences ->
         preferences[onboardingCompleteKey] ?: false
     }
@@ -76,6 +94,12 @@ class DefaultSettingsRepository @Inject constructor(
     override suspend fun setProgramStartDate(date: LocalDate) {
         dataStore.edit { preferences ->
             preferences[startDateKey] = date.toEpochDay()
+        }
+    }
+
+    override suspend fun clearProgramStartDate() {
+        dataStore.edit { preferences ->
+            preferences.remove(startDateKey)
         }
     }
 
@@ -106,6 +130,24 @@ class DefaultSettingsRepository @Inject constructor(
     override suspend fun setVibrationEnabled(enabled: Boolean) {
         dataStore.edit { preferences ->
             preferences[vibrationKey] = enabled
+        }
+    }
+
+    override suspend fun setAudioDuckingEnabled(enabled: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[audioDuckingKey] = enabled
+        }
+    }
+
+    override suspend fun setCountdownVoiceCuesEnabled(enabled: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[countdownVoiceCuesKey] = enabled
+        }
+    }
+
+    override suspend fun setThemeMode(mode: ThemeMode) {
+        dataStore.edit { preferences ->
+            preferences[themeModeKey] = mode.name
         }
     }
 

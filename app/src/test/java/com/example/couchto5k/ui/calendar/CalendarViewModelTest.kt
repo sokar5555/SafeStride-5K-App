@@ -142,5 +142,7 @@ class CalendarViewModelTest {
         override suspend fun clearAllCompletedWorkouts() {}
         override suspend fun insertLocationPoints(points: List<LocationPointEntity>) {}
         override suspend fun getLocationPointsForWorkout(workoutId: Long): List<LocationPointEntity> = emptyList()
+        override suspend fun getAllLocationPoints(): List<LocationPointEntity> = emptyList()
+        override suspend fun clearAllLocationPoints() {}
     }
 }

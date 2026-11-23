@@ -24,6 +24,9 @@ interface CompletedWorkoutDao {
     @Query("SELECT * FROM location_points WHERE completedWorkoutId = :workoutId ORDER BY sequence ASC")
     suspend fun getLocationPointsForWorkout(workoutId: Long): List<LocationPointEntity>
 
+    @Query("SELECT * FROM location_points ORDER BY completedWorkoutId ASC, sequence ASC")
+    suspend fun getAllLocationPoints(): List<LocationPointEntity>
+
     @Transaction
     @Query("SELECT * FROM completed_workouts ORDER BY startedAt DESC")
     fun getAllCompletedWorkouts(): Flow<List<WorkoutWithIntervals>>
@@ -40,4 +43,7 @@ interface CompletedWorkoutDao {
 
     @Query("DELETE FROM completed_intervals")
     suspend fun clearAllCompletedIntervals()
+
+    @Query("DELETE FROM location_points")
+    suspend fun clearAllLocationPoints()
 }

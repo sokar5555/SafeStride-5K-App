@@ -1,6 +1,7 @@
 package com.example.couchto5k.domain.repository
 
 import com.example.couchto5k.domain.model.DistanceUnit
+import com.example.couchto5k.domain.model.ThemeMode
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import java.time.DayOfWeek
@@ -16,6 +17,12 @@ interface SettingsRepository {
         get() = flowOf(true)
     val vibrationEnabled: Flow<Boolean>
         get() = flowOf(true)
+    val audioDuckingEnabled: Flow<Boolean>
+        get() = flowOf(true)
+    val countdownVoiceCuesEnabled: Flow<Boolean>
+        get() = flowOf(true)
+    val themeMode: Flow<ThemeMode>
+        get() = flowOf(ThemeMode.LIGHT)
     val onboardingComplete: Flow<Boolean>
         get() = flowOf(false)
     val progressiveWeeksExtension: Flow<Int>
@@ -24,11 +31,15 @@ interface SettingsRepository {
         get() = flowOf(DayOfWeek.SATURDAY)
 
     suspend fun setProgramStartDate(date: LocalDate)
+    suspend fun clearProgramStartDate() {}
     suspend fun setPreferredWorkoutDays(days: Set<DayOfWeek>)
     suspend fun setDistanceUnit(unit: DistanceUnit)
     suspend fun setVoiceCuesEnabled(enabled: Boolean) {}
     suspend fun setSoundCuesEnabled(enabled: Boolean) {}
     suspend fun setVibrationEnabled(enabled: Boolean) {}
+    suspend fun setAudioDuckingEnabled(enabled: Boolean) {}
+    suspend fun setCountdownVoiceCuesEnabled(enabled: Boolean) {}
+    suspend fun setThemeMode(mode: ThemeMode) {}
     suspend fun setOnboardingComplete(complete: Boolean) {}
     suspend fun setProgressiveWeeksExtension(weeks: Int) {}
     suspend fun setLongRunDay(day: DayOfWeek) {}

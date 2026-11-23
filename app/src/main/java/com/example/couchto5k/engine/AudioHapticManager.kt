@@ -16,16 +16,20 @@ import com.example.couchto5k.domain.repository.SettingsRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import java.util.Locale
+import java.util.concurrent.atomic.AtomicLong
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.time.Duration.Companion.milliseconds
 
 interface AudioHapticManager {
     val isTtsReady: StateFlow<Boolean>
@@ -63,6 +67,9 @@ class DefaultAudioHapticManager @Inject constructor(
     @Volatile
     private var vibrationEnabled: Boolean = true
 
+    @Volatile
+    private var audioDuckingEnabled: Boolean = true
+
     private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
 
     private val vibrator: Vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -81,7 +88,16 @@ class DefaultAudioHapticManager @Inject constructor(
     @Volatile
     private var pendingSpeechMessage: String? = null
 
+    private val focusLock = Any()
     private var audioFocusRequest: AudioFocusRequest? = null
+    private var activeUtteranceId: String? = null
+    private var toneFocusReleaseJob: Job? = null
+    private val utteranceCounter = AtomicLong(0L)
+
+    companion object {
+        private const val WARMUP_UTTERANCE_ID = "warmup_utterance"
+        private const val TONE_DUCK_DURATION_MS = 300L
+    }
 
     init {
         scope.launch {
@@ -92,6 +108,18 @@ class DefaultAudioHapticManager @Inject constructor(
         }
         scope.launch {
             settingsRepository.vibrationEnabled.collectLatest { vibrationEnabled = it }
+        }
+        scope.launch {
+            settingsRepository.audioDuckingEnabled.collectLatest { enabled ->
+                audioDuckingEnabled = enabled
+                if (!enabled) {
+                    synchronized(focusLock) {
+                        toneFocusReleaseJob?.cancel()
+                        toneFocusReleaseJob = null
+                        abandonAudioFocusLocked()
+                    }
+                }
+            }
         }
 
         try {
@@ -109,11 +137,9 @@ class DefaultAudioHapticManager @Inject constructor(
         }
     }
 
-
     override fun onInit(status: Int) {
         if (status == TextToSpeech.SUCCESS) {
             try {
-                // Explicitly set high-quality speech audio attributes
                 val audioAttributes = AudioAttributes.Builder()
                     .setUsage(AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
                     .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
@@ -129,12 +155,22 @@ class DefaultAudioHapticManager @Inject constructor(
                     tts?.setOnUtteranceProgressListener(
                         object : UtteranceProgressListener() {
                             override fun onStart(utteranceId: String?) {}
+
                             override fun onDone(utteranceId: String?) {
-                                abandonAudioFocus()
+                                handleUtteranceFinished(utteranceId)
                             }
+
                             @Suppress("OVERRIDE_DEPRECATION")
                             override fun onError(utteranceId: String?) {
-                                abandonAudioFocus()
+                                handleUtteranceFinished(utteranceId)
+                            }
+
+                            override fun onError(utteranceId: String?, errorCode: Int) {
+                                handleUtteranceFinished(utteranceId)
+                            }
+
+                            override fun onStop(utteranceId: String?, interrupted: Boolean) {
+                                handleUtteranceFinished(utteranceId)
                             }
                         },
                     )
@@ -142,12 +178,12 @@ class DefaultAudioHapticManager @Inject constructor(
                     _isTtsReady.value = true
 
                     // Warm up native AudioTrack pipeline with silent utterance to eliminate cold-start lag & static
-                    tts?.speak(" ", TextToSpeech.QUEUE_FLUSH, null, "warmup_utterance")
+                    tts?.speak(" ", TextToSpeech.QUEUE_FLUSH, null, WARMUP_UTTERANCE_ID)
 
                     // Play queued speech message if speak() was called before TTS finished initializing
                     pendingSpeechMessage?.let { msg ->
-                        speak(msg)
                         pendingSpeechMessage = null
+                        speak(msg)
                     }
                 }
             } catch (_: Exception) {
@@ -156,23 +192,35 @@ class DefaultAudioHapticManager @Inject constructor(
         }
     }
 
-    private fun requestAudioFocus() {
+    private fun handleUtteranceFinished(utteranceId: String?) {
+        if ((utteranceId == null) || (utteranceId == WARMUP_UTTERANCE_ID)) return
+        synchronized(focusLock) {
+            if (utteranceId == activeUtteranceId) {
+                activeUtteranceId = null
+                abandonAudioFocusLocked()
+            }
+        }
+    }
+
+    private fun requestAudioFocusLocked() {
+        if (!audioDuckingEnabled) return
         try {
-            val focusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
-                .setAudioAttributes(
-                    AudioAttributes.Builder()
-                        .setUsage(AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
-                        .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-                        .build(),
-                )
-                .setAcceptsDelayedFocusGain(false)
-                .build()
-            audioFocusRequest = focusRequest
-            audioManager.requestAudioFocus(focusRequest)
+            if (audioFocusRequest == null) {
+                audioFocusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
+                    .setAudioAttributes(
+                        AudioAttributes.Builder()
+                            .setUsage(AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
+                            .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                            .build(),
+                    )
+                    .setAcceptsDelayedFocusGain(false)
+                    .build()
+            }
+            audioFocusRequest?.let { audioManager.requestAudioFocus(it) }
         } catch (_: Exception) {}
     }
 
-    private fun abandonAudioFocus() {
+    private fun abandonAudioFocusLocked() {
         try {
             audioFocusRequest?.let { audioManager.abandonAudioFocusRequest(it) }
         } catch (_: Exception) {}
@@ -181,6 +229,20 @@ class DefaultAudioHapticManager @Inject constructor(
     override fun playTransitionSound() {
         if (!soundCuesEnabled) return
         try {
+            if (audioDuckingEnabled) {
+                synchronized(focusLock) {
+                    toneFocusReleaseJob?.cancel()
+                    requestAudioFocusLocked()
+                    toneFocusReleaseJob = scope.launch {
+                        delay(TONE_DUCK_DURATION_MS.milliseconds)
+                        synchronized(focusLock) {
+                            if (activeUtteranceId == null) {
+                                abandonAudioFocusLocked()
+                            }
+                        }
+                    }
+                }
+            }
             toneGenerator?.startTone(ToneGenerator.TONE_PROP_BEEP, 150)
         } catch (_: Exception) {}
     }
@@ -199,8 +261,17 @@ class DefaultAudioHapticManager @Inject constructor(
         try {
             if (_isTtsReady.value) {
                 pendingSpeechMessage = null
-                requestAudioFocus()
-                tts?.speak(message, TextToSpeech.QUEUE_FLUSH, null, "WorkoutEngineTTS")
+                val utteranceId = "WorkoutEngineTTS_${utteranceCounter.incrementAndGet()}"
+                synchronized(focusLock) {
+                    toneFocusReleaseJob?.cancel()
+                    toneFocusReleaseJob = null
+                    activeUtteranceId = utteranceId
+                    requestAudioFocusLocked()
+                }
+                val speakResult = tts?.speak(message, TextToSpeech.QUEUE_FLUSH, null, utteranceId)
+                if (speakResult == TextToSpeech.ERROR) {
+                    handleUtteranceFinished(utteranceId)
+                }
             } else {
                 // Queue message if TTS is still initializing on cold startup
                 pendingSpeechMessage = message
@@ -212,7 +283,13 @@ class DefaultAudioHapticManager @Inject constructor(
 
     override fun release() {
         scope.cancel()
-        abandonAudioFocus()
+        synchronized(focusLock) {
+            toneFocusReleaseJob?.cancel()
+            toneFocusReleaseJob = null
+            activeUtteranceId = null
+            abandonAudioFocusLocked()
+            audioFocusRequest = null
+        }
         try {
             tts?.stop()
             tts?.shutdown()
