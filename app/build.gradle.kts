@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -5,6 +7,17 @@ plugins {
     alias(libs.plugins.ksp)
     alias(libs.plugins.kotlin.compose)
 }
+
+val localProperties = Properties().apply {
+    val localPropertiesFile = rootProject.file("local.properties")
+    if (localPropertiesFile.exists()) {
+        localPropertiesFile.inputStream().use { load(it) }
+    }
+}
+
+fun configProperty(key: String): String? =
+    localProperties.getProperty(key)?.takeIf { it.isNotBlank() }
+        ?: (project.findProperty(key) as? String)?.takeIf { it.isNotBlank() }
 
 android {
     namespace = "com.example.couchto5k"
@@ -22,12 +35,34 @@ android {
             useSupportLibrary = true
         }
 
-        manifestPlaceholders["MAPS_API_KEY"] = project.findProperty("MAPS_API_KEY") as? String ?: "AIzaSyAgbViOuDYZ_h4obbqX8vQGFg_sk0ZCp6Q"
+        manifestPlaceholders["MAPS_API_KEY"] = configProperty("MAPS_API_KEY") ?: ""
+    }
+
+    signingConfigs {
+        val storeFilePath = configProperty("RELEASE_STORE_FILE")
+        val storePasswordValue = configProperty("RELEASE_STORE_PASSWORD")
+        val keyAliasValue = configProperty("RELEASE_KEY_ALIAS")
+        val keyPasswordValue = configProperty("RELEASE_KEY_PASSWORD")
+
+        if (
+            storeFilePath != null &&
+            storePasswordValue != null &&
+            keyAliasValue != null &&
+            keyPasswordValue != null
+        ) {
+            create("release") {
+                storeFile = file(storeFilePath)
+                storePassword = storePasswordValue
+                keyAlias = keyAliasValue
+                keyPassword = keyPasswordValue
+            }
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.findByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",

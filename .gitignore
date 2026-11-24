@@ -14,3 +14,9 @@
 .cxx
 local.properties
 /app/build
+/.idea/inspectionProfiles/
+*.jks
+*.keystore
+*.apk
+*.aab
+
