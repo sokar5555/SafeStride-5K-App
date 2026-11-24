@@ -723,33 +723,33 @@ Tasks:
 
 Done when: Users can toggle background audio ducking, toggle 30s/10s/5s countdown voice cues during structured intervals, export and restore full app data as JSON from Settings, and switch between Light (default), Dark, and System theme modes with full UI contrast in both themes.
 
-### Phase 9 — QA
+### Phase 9 — QA (Completed)
 Timer scenarios:
-- pause/resume
-- screen lock/background
-- recreation
-- long workout
-- interval changes
-- finish/cancel
+- [x] pause/resume
+- [x] screen lock/background
+- [x] recreation
+- [x] long workout
+- [x] interval changes
+- [x] finish/cancel
 
 GPS scenarios:
-- good/poor signal
-- GPS disabled
-- permission denied
-- approximate/precise location
-- stationary user
-- screen locked
+- [x] good/poor signal
+- [x] GPS disabled
+- [x] permission denied
+- [x] approximate/precise location
+- [x] stationary user
+- [x] screen locked
 
 Calendar scenarios:
-- month boundaries
-- repeat/missed/late workouts
-- week transition
+- [x] month boundaries
+- [x] repeat/missed/late workouts
+- [x] week transition
 
 Stats scenarios:
-- zero/one/many workouts
-- repeated workouts
-- new personal record
-- non-record workout
+- [x] zero/one/many workouts
+- [x] repeated workouts
+- [x] new personal record
+- [x] non-record workout
 
 ## 28. Automated Test Priorities
 Unit tests:

@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LocationDisabled
+import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -49,6 +50,14 @@ import androidx.core.location.LocationManagerCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 
+private data class LocationPermissionStatus(
+    val hasFine: Boolean,
+    val hasCoarse: Boolean,
+) {
+    val hasAny: Boolean get() = hasFine || hasCoarse
+    val isApproximateOnly: Boolean get() = !hasFine && hasCoarse
+}
+
 @Composable
 fun LocationStatusBanner(
     modifier: Modifier = Modifier,
@@ -56,26 +65,30 @@ fun LocationStatusBanner(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    var hasLocationPermission by remember {
-        mutableStateOf(checkLocationPermission(context))
+    var permissionStatus by remember {
+        mutableStateOf(checkLocationPermissionStatus(context))
     }
     var isGpsEnabled by remember {
         mutableStateOf(checkGpsEnabled(context))
     }
     var requestedOnce by remember { mutableStateOf(value = false) }
+    var requestedPreciseOnce by remember { mutableStateOf(value = false) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions(),
     ) { _ ->
         requestedOnce = true
-        hasLocationPermission = checkLocationPermission(context)
+        if (permissionStatus.isApproximateOnly) {
+            requestedPreciseOnce = true
+        }
+        permissionStatus = checkLocationPermissionStatus(context)
         isGpsEnabled = checkGpsEnabled(context)
     }
 
     DisposableEffect(lifecycleOwner, context) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
-                hasLocationPermission = checkLocationPermission(context)
+                permissionStatus = checkLocationPermissionStatus(context)
                 isGpsEnabled = checkGpsEnabled(context)
             }
         }
@@ -85,7 +98,9 @@ fun LocationStatusBanner(
         }
     }
 
-    val showBanner = !hasLocationPermission || !isGpsEnabled
+    val isMissingOrGpsOff = !permissionStatus.hasAny || !isGpsEnabled
+    val isApproximateOnly = permissionStatus.isApproximateOnly && isGpsEnabled
+    val showBanner = isMissingOrGpsOff || isApproximateOnly
 
     AnimatedVisibility(
         visible = showBanner,
@@ -93,12 +108,39 @@ fun LocationStatusBanner(
         exit = fadeOut() + shrinkVertically(),
         modifier = modifier,
     ) {
+        val containerColor = if (isMissingOrGpsOff) {
+            MaterialTheme.colorScheme.errorContainer
+        } else {
+            MaterialTheme.colorScheme.secondaryContainer
+        }
+        val contentColor = if (isMissingOrGpsOff) {
+            MaterialTheme.colorScheme.onErrorContainer
+        } else {
+            MaterialTheme.colorScheme.onSecondaryContainer
+        }
+        val iconTint = if (isMissingOrGpsOff) {
+            MaterialTheme.colorScheme.error
+        } else {
+            MaterialTheme.colorScheme.primary
+        }
+        val bannerText = when {
+            !permissionStatus.hasAny || !isGpsEnabled ->
+                "Location disabled. Workout timer will continue, but GPS distance and route tracking require Location permission."
+            else ->
+                "Approximate location is active. Enable precise location to improve distance, pace, and route mapping accuracy."
+        }
+        val actionLabel = when {
+            !permissionStatus.hasAny -> if (!requestedOnce) "Grant Permission" else "App Settings"
+            !isGpsEnabled -> "Enable GPS"
+            else -> if (!requestedPreciseOnce) "Enable Precise" else "App Settings"
+        }
+
         Card(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(bottom = 12.dp),
             colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.errorContainer,
+                containerColor = containerColor,
             ),
             shape = RoundedCornerShape(12.dp),
         ) {
@@ -112,16 +154,16 @@ fun LocationStatusBanner(
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     Icon(
-                        imageVector = Icons.Default.LocationDisabled,
-                        contentDescription = "Location disabled warning",
-                        tint = MaterialTheme.colorScheme.error,
+                        imageVector = if (isMissingOrGpsOff) Icons.Default.LocationDisabled else Icons.Default.MyLocation,
+                        contentDescription = if (isMissingOrGpsOff) "Location disabled warning" else "Approximate location notice",
+                        tint = iconTint,
                         modifier = Modifier.size(22.dp),
                     )
                     Text(
-                        text = "Location disabled. Workout timer will continue, but GPS distance and route tracking require Location permission.",
+                        text = bannerText,
                         style = MaterialTheme.typography.bodySmall,
                         fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onErrorContainer,
+                        color = contentColor,
                         modifier = Modifier.weight(1f),
                     )
                 }
@@ -134,30 +176,40 @@ fun LocationStatusBanner(
                 ) {
                     OutlinedButton(
                         onClick = {
-                            if (!hasLocationPermission) {
-                                if (!requestedOnce) {
-                                    permissionLauncher.launch(
-                                        arrayOf(
-                                            Manifest.permission.ACCESS_FINE_LOCATION,
-                                            Manifest.permission.ACCESS_COARSE_LOCATION,
-                                        ),
-                                    )
-                                } else {
-                                    openAppLocationSettings(context)
+                            when {
+                                !permissionStatus.hasAny -> {
+                                    if (!requestedOnce) {
+                                        permissionLauncher.launch(
+                                            arrayOf(
+                                                Manifest.permission.ACCESS_FINE_LOCATION,
+                                                Manifest.permission.ACCESS_COARSE_LOCATION,
+                                            ),
+                                        )
+                                    } else {
+                                        openAppLocationSettings(context)
+                                    }
                                 }
-                            } else {
-                                openSystemLocationSettings(context)
+                                !isGpsEnabled -> openSystemLocationSettings(context)
+                                else -> {
+                                    if (!requestedPreciseOnce) {
+                                        requestedPreciseOnce = true
+                                        permissionLauncher.launch(
+                                            arrayOf(
+                                                Manifest.permission.ACCESS_FINE_LOCATION,
+                                                Manifest.permission.ACCESS_COARSE_LOCATION,
+                                            ),
+                                        )
+                                    } else {
+                                        openAppLocationSettings(context)
+                                    }
+                                }
                             }
                         },
                         modifier = Modifier.heightIn(min = 48.dp),
                         shape = RoundedCornerShape(10.dp),
                     ) {
                         Text(
-                            text = if (!hasLocationPermission) {
-                                if (!requestedOnce) "Grant Permission" else "App Settings"
-                            } else {
-                                "Enable GPS"
-                            },
+                            text = actionLabel,
                             fontWeight = FontWeight.Bold,
                         )
                     }
@@ -167,7 +219,7 @@ fun LocationStatusBanner(
     }
 }
 
-private fun checkLocationPermission(context: Context): Boolean {
+private fun checkLocationPermissionStatus(context: Context): LocationPermissionStatus {
     val fine = ContextCompat.checkSelfPermission(
         context,
         Manifest.permission.ACCESS_FINE_LOCATION,
@@ -176,7 +228,7 @@ private fun checkLocationPermission(context: Context): Boolean {
         context,
         Manifest.permission.ACCESS_COARSE_LOCATION,
     ) == PackageManager.PERMISSION_GRANTED
-    return fine || coarse
+    return LocationPermissionStatus(hasFine = fine, hasCoarse = coarse)
 }
 
 private fun checkGpsEnabled(context: Context): Boolean {

@@ -371,4 +371,87 @@ class WorkoutHistoryRepositoryTest {
         assertEquals(600, saved.workout.walkingSeconds)
         assertEquals(0, saved.workout.longestCompletedRunSeconds)
     }
+
+    @Test
+    fun databaseIntegration_persistsIntervalsRoutePointsAggregatesAndNewestFirstOrdering() = runTest {
+        val workout1 = TrainingWorkout(
+            id = 1L,
+            week = 1,
+            workoutNumber = 1,
+            title = "Week 1, Workout 1",
+            intervals = listOf(
+                WorkoutInterval(0, IntervalType.WARMUP, 300),
+                WorkoutInterval(1, IntervalType.RUN, 60),
+                WorkoutInterval(2, IntervalType.COOLDOWN, 300),
+            ),
+        )
+        val workout2 = TrainingWorkout(
+            id = 4L,
+            week = 2,
+            workoutNumber = 1,
+            title = "Week 2, Workout 1",
+            intervals = listOf(
+                WorkoutInterval(0, IntervalType.WARMUP, 300),
+                WorkoutInterval(1, IntervalType.RUN, 90),
+                WorkoutInterval(2, IntervalType.COOLDOWN, 300),
+            ),
+        )
+
+        val olderStart = Instant.parse("2026-11-01T07:00:00Z")
+        val newerStart = Instant.parse("2026-11-05T07:00:00Z")
+
+        repository.saveCompletedWorkout(
+            workout1,
+            ActiveWorkoutState(
+                workoutId = 1L,
+                totalElapsedMillis = 660_000L,
+                distanceMeters = 1500.0,
+                intervalDistancesMeters = mapOf(0 to 400.0, 1 to 700.0, 2 to 400.0),
+                routePoints = listOf(
+                    LocationPoint(37.7749, -122.4194, 12.0, 6f, 1000L),
+                    LocationPoint(37.7755, -122.4194, 13.0, 5f, 4000L),
+                    LocationPoint(37.7761, -122.4194, 14.0, 5f, 7000L),
+                ),
+                startedAt = olderStart,
+                status = WorkoutEngineStatus.COMPLETED,
+            ),
+        )
+
+        repository.saveCompletedWorkout(
+            workout2,
+            ActiveWorkoutState(
+                workoutId = 4L,
+                totalElapsedMillis = 690_000L,
+                distanceMeters = 2000.0,
+                intervalDistancesMeters = mapOf(0 to 500.0, 1 to 1000.0, 2 to 500.0),
+                routePoints = listOf(
+                    LocationPoint(37.7770, -122.4194, 15.0, 4f, 10000L),
+                    LocationPoint(37.7780, -122.4194, 16.0, 4f, 15000L),
+                ),
+                startedAt = newerStart,
+                status = WorkoutEngineStatus.COMPLETED,
+            ),
+        )
+
+        val history = repository.getHistory().first()
+        assertEquals(2, history.size)
+        // Newest first ordering
+        assertEquals("Week 2, Workout 1", history[0].workout.title)
+        assertEquals("Week 1, Workout 1", history[1].workout.title)
+
+        // Aggregates & pace
+        val newest = history[0]
+        assertEquals(690, newest.workout.durationSeconds)
+        assertEquals(90, newest.workout.runningSeconds)
+        assertEquals(600, newest.workout.walkingSeconds)
+        assertEquals(2000.0, newest.workout.distanceMeters, 0.01)
+        assertEquals(345.0, newest.workout.averagePaceSecondsPerKm, 0.1)
+        assertEquals(90, newest.workout.longestCompletedRunSeconds)
+
+        // Route points preserved in sequence
+        val olderDetails = repository.getWorkoutDetails(history[1].workout.id)!!
+        assertEquals(3, olderDetails.routePoints.size)
+        assertEquals(listOf(1000L, 4000L, 7000L), olderDetails.routePoints.map { it.timestamp })
+        assertEquals(listOf(400.0, 700.0, 400.0), olderDetails.intervals.map { it.distanceMeters })
+    }
 }

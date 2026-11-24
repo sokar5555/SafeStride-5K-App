@@ -6,26 +6,43 @@ import com.example.couchto5k.data.repository.DefaultTrainingPlanRepository
 import com.example.couchto5k.domain.model.ScheduledWorkout
 import com.example.couchto5k.domain.model.WorkoutStatus
 import com.example.couchto5k.domain.repository.TrainingPlanRepository
+import com.example.couchto5k.engine.WorkoutEngineStatus
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import java.time.LocalDate
 import javax.inject.Inject
 
-class GetCombinedScheduleUseCase @Inject constructor(
+class GetCombinedScheduleUseCase internal constructor(
     private val scheduledWorkoutDao: ScheduledWorkoutDao,
     private val completedWorkoutDao: CompletedWorkoutDao,
     private val trainingPlanRepository: TrainingPlanRepository,
+    private val todayProvider: () -> LocalDate = { LocalDate.now() },
 ) {
+    @Inject
+    constructor(
+        scheduledWorkoutDao: ScheduledWorkoutDao,
+        completedWorkoutDao: CompletedWorkoutDao,
+        trainingPlanRepository: TrainingPlanRepository,
+    ) : this(
+        scheduledWorkoutDao = scheduledWorkoutDao,
+        completedWorkoutDao = completedWorkoutDao,
+        trainingPlanRepository = trainingPlanRepository,
+        todayProvider = { LocalDate.now() },
+    )
+
     operator fun invoke(): Flow<List<ScheduledWorkout>> {
         return combine(
             scheduledWorkoutDao.getAllScheduledWorkouts(),
             completedWorkoutDao.getAllCompletedWorkouts(),
             trainingPlanRepository.getAllWorkouts(),
         ) { scheduledList, completedList, workoutsList ->
-            val today = LocalDate.now()
+            val today = todayProvider()
 
             val workoutsMap = workoutsList.associateBy { (id) -> id }
-            val completedMap = completedList.associateBy { (workout) -> workout.trainingWorkoutId }
+            val completedMap = completedList
+                .asSequence()
+                .filter { (workout) -> workout.status == WorkoutEngineStatus.COMPLETED }
+                .associateBy { (workout) -> workout.trainingWorkoutId }
 
             // Find the first uncompleted workout scheduled today or in the future
             val nextAvailable = scheduledList.firstOrNull { entity ->

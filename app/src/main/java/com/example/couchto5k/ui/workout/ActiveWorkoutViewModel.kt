@@ -137,23 +137,34 @@ class ActiveWorkoutViewModel @Inject constructor(
     private fun loadAndStartWorkout() {
         viewModelScope.launch {
             val isOpenExercise = workoutId == WorkoutEngine.FREE_RUN_WORKOUT_ID
+            val existingState = workoutEngine.workoutState.value
+            val isSessionActiveForWorkout = (existingState.workoutId == workoutId) &&
+                ((existingState.status == WorkoutEngineStatus.RUNNING) || (existingState.status == WorkoutEngineStatus.PAUSED))
+
             val workout = if (isOpenExercise) {
-                WorkoutEngine.createOpenExerciseWorkout(initialIntervalType)
+                val resolvedType = if (isSessionActiveForWorkout) {
+                    existingState.currentInterval?.type ?: initialIntervalType
+                } else {
+                    initialIntervalType
+                }
+                WorkoutEngine.createOpenExerciseWorkout(resolvedType)
             } else {
                 repository.getWorkoutById(workoutId)
             }
             if (workout != null) {
                 _currentWorkout.value = workout
-                if (isOpenExercise) {
-                    workoutEngine.startFreeRun(initialIntervalType)
-                } else {
-                    workoutEngine.start(workout, isFreeRun = false)
-                }
+                if (!isSessionActiveForWorkout) {
+                    if (isOpenExercise) {
+                        workoutEngine.startFreeRun(initialIntervalType)
+                    } else {
+                        workoutEngine.start(workout, isFreeRun = false)
+                    }
 
-                val startIntent = Intent(application, WorkoutTrackingService::class.java).apply {
-                    action = WorkoutTrackingService.ACTION_START
+                    val startIntent = Intent(application, WorkoutTrackingService::class.java).apply {
+                        action = WorkoutTrackingService.ACTION_START
+                    }
+                    ContextCompat.startForegroundService(application, startIntent)
                 }
-                ContextCompat.startForegroundService(application, startIntent)
             }
         }
     }

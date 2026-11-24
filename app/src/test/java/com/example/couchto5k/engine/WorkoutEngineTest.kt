@@ -443,7 +443,7 @@ class WorkoutEngineTest {
             title = "Disabled Countdown",
             intervals = listOf(WorkoutInterval(0, IntervalType.RUN, 60)),
         )
-        workoutEngine.setCountdownVoiceCuesEnabled(false)
+        workoutEngine.setCountdownVoiceCuesEnabled(enabled = false)
         workoutEngine.start(workout)
         fakeAudioHapticManager.spokenMessages.clear()
 
@@ -467,6 +467,110 @@ class WorkoutEngineTest {
         SystemClock.setCurrentTimeMillis(t1 + 55_000L)
         workoutEngine.updateTime()
         assertTrue(fakeAudioHapticManager.spokenMessages.isEmpty())
+    }
+
+    @Test
+    fun pauseResume_acrossMultiplePausesInLongWorkout_preservesExactElapsedAndRemainingTime() {
+        val longWorkout = TrainingWorkout(
+            id = 25L,
+            week = 9,
+            workoutNumber = 1,
+            title = "Week 9, Workout 1",
+            intervals = listOf(
+                WorkoutInterval(0, IntervalType.WARMUP, 300), // 5 min
+                WorkoutInterval(1, IntervalType.RUN, 1800), // 30 min
+                WorkoutInterval(2, IntervalType.COOLDOWN, 300), // 5 min
+            ),
+        )
+        workoutEngine.start(longWorkout)
+        val t0 = SystemClock.elapsedRealtime()
+
+        // Complete 5 min warmup
+        SystemClock.setCurrentTimeMillis(t0 + 300_000L)
+        workoutEngine.updateTime()
+        assertEquals(1, workoutEngine.workoutState.value.currentIntervalIndex)
+        assertEquals(IntervalType.RUN, workoutEngine.workoutState.value.currentInterval?.type)
+
+        val runStart = SystemClock.elapsedRealtime()
+        // Run 10 min, pause 2 min (screen lock / rest)
+        SystemClock.setCurrentTimeMillis(runStart + 600_000L)
+        workoutEngine.updateTime()
+        workoutEngine.pause()
+        SystemClock.setCurrentTimeMillis(runStart + 720_000L)
+        workoutEngine.resume()
+
+        // Run 15 min more (25 min active run), pause 5 min
+        SystemClock.setCurrentTimeMillis(runStart + 1_620_000L)
+        workoutEngine.updateTime()
+        assertEquals(300_000L, workoutEngine.workoutState.value.intervalRemainingMillis)
+        assertEquals(1_800_000L, workoutEngine.workoutState.value.totalElapsedMillis)
+
+        workoutEngine.pause()
+        SystemClock.setCurrentTimeMillis(runStart + 1_920_000L)
+        workoutEngine.resume()
+
+        // Run final 4m 59s -> 1s remaining before cooldown
+        SystemClock.setCurrentTimeMillis(runStart + 2_219_000L)
+        workoutEngine.updateTime()
+        assertEquals(1_000L, workoutEngine.workoutState.value.intervalRemainingMillis)
+        assertEquals(2_099_000L, workoutEngine.workoutState.value.totalElapsedMillis)
+
+        // 1s later -> transitions cleanly to COOLDOWN (300s)
+        SystemClock.setCurrentTimeMillis(runStart + 2_220_000L)
+        workoutEngine.updateTime()
+        assertEquals(2, workoutEngine.workoutState.value.currentIntervalIndex)
+        assertEquals(IntervalType.COOLDOWN, workoutEngine.workoutState.value.currentInterval?.type)
+        assertEquals(300_000L, workoutEngine.workoutState.value.intervalRemainingMillis)
+    }
+
+    @Test
+    fun previousInterval_fromFirstInterval_restartsFirstInterval() {
+        val workout = createTestWorkout()
+        workoutEngine.start(workout)
+        val t0 = SystemClock.elapsedRealtime()
+
+        SystemClock.setCurrentTimeMillis(t0 + 45_000L)
+        workoutEngine.updateTime()
+        assertEquals(255_000L, workoutEngine.workoutState.value.intervalRemainingMillis)
+
+        workoutEngine.previousInterval()
+
+        val state = workoutEngine.workoutState.value
+        assertEquals(0, state.currentIntervalIndex)
+        assertEquals(300_000L, state.intervalRemainingMillis)
+        assertEquals(0L, state.totalElapsedMillis)
+    }
+
+    @Test
+    fun stopWorkout_duringCooldown_completesInsteadOfCancelling() {
+        val workout = createTestWorkout()
+        workoutEngine.start(workout)
+
+        // Skip to final COOLDOWN interval (index 4)
+        repeat(4) { workoutEngine.skipToNextInterval() }
+        assertEquals(IntervalType.COOLDOWN, workoutEngine.workoutState.value.currentInterval?.type)
+
+        workoutEngine.stopWorkout()
+
+        val state = workoutEngine.workoutState.value
+        assertEquals(WorkoutEngineStatus.COMPLETED, state.status)
+        assertTrue(state.isPaused)
+    }
+
+    @Test
+    fun skipToNextInterval_onFinalInterval_completesWorkout() {
+        val workout = createTestWorkout()
+        workoutEngine.start(workout)
+
+        repeat(4) { workoutEngine.skipToNextInterval() }
+        assertEquals(4, workoutEngine.workoutState.value.currentIntervalIndex)
+
+        workoutEngine.skipToNextInterval()
+
+        val state = workoutEngine.workoutState.value
+        assertEquals(WorkoutEngineStatus.COMPLETED, state.status)
+        assertEquals(0L, state.intervalRemainingMillis)
+        assertEquals(workout.totalPlannedDurationSeconds * 1000L, state.totalElapsedMillis)
     }
 }
 

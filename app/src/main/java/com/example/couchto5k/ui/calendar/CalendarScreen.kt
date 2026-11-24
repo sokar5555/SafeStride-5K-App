@@ -296,7 +296,7 @@ fun MonthCalendarCard(
                         val cellIndex = (rowIndex * 7) + colIndex
                         val dayNumber = (cellIndex - startDayOfWeekOffset) + 1
 
-                        if (dayNumber in 1..daysInMonth) {
+                        if ((dayNumber in 1..daysInMonth)) {
                             val date = displayedMonth.atDay(dayNumber)
                             val workout = workoutMap[date]
                             val isSelected = date == selectedDate

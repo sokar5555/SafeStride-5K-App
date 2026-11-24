@@ -33,6 +33,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import java.time.Instant
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -55,6 +56,7 @@ class WorkoutTrackingService : Service() {
     private val locationFilter = LocationFilter()
 
     private var isTrackingLocation = false
+    private var currentSessionStartedAt: Instant? = null
     private var lastNotificationSeconds: Int = -1
     private var lastNotificationStatus: WorkoutEngineStatus? = null
     private var lastNotificationIntervalType: IntervalType? = null
@@ -88,6 +90,10 @@ class WorkoutTrackingService : Service() {
             workoutEngine.workoutState.collectLatest { state ->
                 when (state.status) {
                     WorkoutEngineStatus.RUNNING -> {
+                        if (currentSessionStartedAt != state.startedAt) {
+                            currentSessionStartedAt = state.startedAt
+                            locationFilter.reset()
+                        }
                         val elapsedSeconds = (state.totalElapsedMillis / 1000).toInt()
                         val intervalType = state.currentInterval?.type
                         if (
@@ -111,6 +117,8 @@ class WorkoutTrackingService : Service() {
                     }
                     WorkoutEngineStatus.COMPLETED, WorkoutEngineStatus.CANCELLED -> {
                         lastNotificationStatus = state.status
+                        currentSessionStartedAt = null
+                        locationFilter.reset()
                         stopLocationTracking()
                         stopForeground(STOP_FOREGROUND_REMOVE)
                         stopSelf()
@@ -130,7 +138,7 @@ class WorkoutTrackingService : Service() {
                         latitude = location.latitude,
                         longitude = location.longitude,
                         altitude = if (location.hasAltitude()) location.altitude else null,
-                        accuracyMeters = location.accuracy,
+                        accuracyMeters = if (location.hasAccuracy()) location.accuracy else Float.MAX_VALUE,
                         timestamp = location.time,
                     )
 
@@ -261,7 +269,12 @@ class WorkoutTrackingService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_START -> {
-                updateNotification(workoutEngine.workoutState.value)
+                val state = workoutEngine.workoutState.value
+                if (currentSessionStartedAt != state.startedAt) {
+                    currentSessionStartedAt = state.startedAt
+                    locationFilter.reset()
+                }
+                updateNotification(state)
             }
             ACTION_PAUSE -> workoutEngine.pause()
             ACTION_RESUME -> workoutEngine.resume()

@@ -54,6 +54,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.couchto5k.domain.model.IntervalType
 import com.example.couchto5k.domain.model.TrainingWorkout
 import com.example.couchto5k.engine.WorkoutEngine
+import com.example.couchto5k.engine.WorkoutEngineStatus
 import com.example.couchto5k.ui.components.AppCardRole
 import com.example.couchto5k.ui.components.AppHeaderBanner
 import com.example.couchto5k.ui.components.AppSectionCard
@@ -73,9 +74,13 @@ fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val customWorkouts by viewModel.customWorkouts.collectAsState()
+    val activeWorkoutState by viewModel.activeWorkoutState.collectAsState()
     var workoutToDelete by remember { mutableStateOf<TrainingWorkout?>(null) }
     var showClearAllSavedDialog by remember { mutableStateOf(value = false) }
     var selectedOpenExerciseType by remember { mutableStateOf(IntervalType.RUN) }
+
+    val hasActiveWorkout = (activeWorkoutState.workoutId >= 0L) &&
+        ((activeWorkoutState.status == WorkoutEngineStatus.RUNNING) || (activeWorkoutState.status == WorkoutEngineStatus.PAUSED))
 
     Scaffold(
         topBar = {
@@ -105,6 +110,51 @@ fun HomeScreen(
             contentPadding = PaddingValues(vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
+            if (hasActiveWorkout) {
+                item {
+                    val elapsedSeconds = (activeWorkoutState.totalElapsedMillis / 1000L).toInt()
+                    val statusLabel = if (activeWorkoutState.isPaused) "Paused" else "Running"
+                    val intervalLabel = activeWorkoutState.currentInterval?.type?.name ?: "Workout"
+                    AppSectionCard(
+                        role = AppCardRole.SUCCESS,
+                        cornerRadius = 16.dp,
+                    ) {
+                        Text(
+                            text = "Workout in Progress ($statusLabel)",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "$intervalLabel • ${formatDuration(elapsedSeconds)} elapsed",
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Button(
+                            onClick = {
+                                if (activeWorkoutState.workoutId == WorkoutEngine.FREE_RUN_WORKOUT_ID) {
+                                    val activeType = activeWorkoutState.currentInterval?.type ?: IntervalType.RUN
+                                    onStartOpenExerciseClick(activeType)
+                                } else {
+                                    onStartWorkoutClick(activeWorkoutState.workoutId)
+                                }
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 48.dp),
+                            shape = RoundedCornerShape(12.dp),
+                        ) {
+                            Icon(imageVector = Icons.Default.PlayArrow, contentDescription = null)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "RESUME WORKOUT",
+                                fontWeight = FontWeight.Bold,
+                            )
+                        }
+                    }
+                }
+            }
+
             // Open Exercise (Free Run / Free Walk) Feature Card
             item {
                 AppSectionCard(

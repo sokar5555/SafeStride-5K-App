@@ -10,8 +10,8 @@ class LocationFilter(
     private var lastAcceptedPoint: LocationPoint? = null
 
     fun processLocation(point: LocationPoint): Pair<Double, LocationPoint?> {
-        // 1. Filter out poor accuracy fixes
-        if (point.accuracyMeters > minAccuracyMeters) {
+        // 1. Filter out poor or invalid accuracy fixes
+        if ((point.accuracyMeters <= 0f) || (point.accuracyMeters > minAccuracyMeters)) {
             return 0.0 to null
         }
 
@@ -21,7 +21,13 @@ class LocationFilter(
             return 0.0 to point
         }
 
-        // 2. Calculate distance between previous and new point
+        // 2. Reject stale, duplicate, or out-of-order timestamps
+        val timeDiffMillis = point.timestamp - lastPoint.timestamp
+        if (timeDiffMillis <= 0L) {
+            return 0.0 to null
+        }
+
+        // 3. Calculate distance between previous and new point
         val results = FloatArray(1)
         Location.distanceBetween(
             lastPoint.latitude,
@@ -33,18 +39,16 @@ class LocationFilter(
 
         val distanceMeters = results[0].toDouble()
 
-        // 3. Filter out stationary noise
+        // 4. Filter out stationary noise
         if (distanceMeters < minDistanceMeters) {
             return 0.0 to null
         }
 
-        // 4. Calculate speed to filter out impossible speed jumps (e.g. driving/GPS teleport)
-        val timeDiffSeconds = (point.timestamp - lastPoint.timestamp) / 1000.0
-        if (timeDiffSeconds > 0) {
-            val calculatedSpeed = distanceMeters / timeDiffSeconds
-            if (calculatedSpeed > maxSpeedMetersPerSecond) {
-                return 0.0 to null
-            }
+        // 5. Calculate speed to filter out impossible speed jumps (e.g. driving/GPS teleport)
+        val timeDiffSeconds = timeDiffMillis / 1000.0
+        val calculatedSpeed = distanceMeters / timeDiffSeconds
+        if (calculatedSpeed > maxSpeedMetersPerSecond) {
+            return 0.0 to null
         }
 
         // Point is valid
@@ -52,7 +56,6 @@ class LocationFilter(
         return distanceMeters to point
     }
 
-    @Suppress("unused")
     fun reset() {
         lastAcceptedPoint = null
     }

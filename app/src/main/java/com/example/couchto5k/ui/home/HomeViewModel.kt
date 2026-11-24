@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.couchto5k.domain.model.TrainingWorkout
 import com.example.couchto5k.domain.repository.TrainingPlanRepository
+import com.example.couchto5k.engine.ActiveWorkoutState
+import com.example.couchto5k.engine.WorkoutEngine
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -14,7 +16,10 @@ import javax.inject.Inject
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val trainingPlanRepository: TrainingPlanRepository,
+    workoutEngine: WorkoutEngine,
 ) : ViewModel() {
+
+    val activeWorkoutState: StateFlow<ActiveWorkoutState> = workoutEngine.workoutState
 
     val customWorkouts: StateFlow<List<TrainingWorkout>> =
         trainingPlanRepository.getCustomWorkouts()

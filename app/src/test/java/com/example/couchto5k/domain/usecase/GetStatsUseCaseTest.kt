@@ -241,6 +241,42 @@ class GetStatsUseCaseTest {
         assertEquals(1, result.runningProgression.recordHistory.size)
     }
 
+    @Test
+    fun `non-record workout keeps currentLongestRun and improvement unchanged`() = runTest {
+        val recordWorkout = createMockWorkoutDetails(
+            trainingWorkoutId = 10L,
+            distance = 3500.0,
+            duration = 1600,
+            runTime = 900,
+            walkTime = 700,
+            longestRun = 300,
+            localDateTime = LocalDateTime.of(2026, 11, 1, 9, 0),
+        )
+        val shorterRepeat = createMockWorkoutDetails(
+            trainingWorkoutId = 1L,
+            distance = 2500.0,
+            duration = 1500,
+            runTime = 480,
+            walkTime = 1020,
+            longestRun = 90,
+            localDateTime = LocalDateTime.of(2026, 11, 3, 9, 0),
+        )
+
+        fakeHistoryRepository.historyFlow.value = listOf(shorterRepeat, recordWorkout)
+        fakeTrainingPlanRepository.workoutsFlow.value = List(27) { i ->
+            TrainingWorkout((i + 1).toLong(), (i / 3) + 1, (i % 3) + 1, "W${i + 1}", emptyList())
+        }
+
+        val result = getStatsUseCase.invoke().first()!!
+        assertEquals(2, result.userStats.completedWorkoutsCount)
+        assertEquals(300, result.runningProgression.startingLongestRunSeconds)
+        assertEquals(300, result.runningProgression.currentLongestRunSeconds)
+        assertEquals(0, result.runningProgression.improvementSeconds)
+        assertEquals(2, result.runningProgression.recordHistory.size)
+        assertEquals(300, result.runningProgression.recordHistory[0].longestRunSeconds)
+        assertEquals(300, result.runningProgression.recordHistory[1].longestRunSeconds)
+    }
+
     private fun createMockWorkoutDetails(
         trainingWorkoutId: Long = 1L,
         distance: Double,
